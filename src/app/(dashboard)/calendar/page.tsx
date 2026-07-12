@@ -31,6 +31,21 @@ async function CalendarContent({
     );
   }
 
+  if ("fetchError" in state) {
+    return (
+      <Card className="glow-border-hover">
+        <CardHeader>
+          <CardTitle className="font-heading">Calendar — {state.calendarEmail}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-destructive">
+            Connected, but the last fetch failed: {state.fetchError}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="glow-border-hover">
       <CardHeader>
