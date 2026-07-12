@@ -102,7 +102,7 @@ export async function generateBrief(): Promise<Brief> {
     .insert({ content })
     .select("content, generated_at")
     .single();
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 
   return { content: data.content as string, generatedAt: data.generated_at as string };
 }
