@@ -24,6 +24,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/calendar" className="text-muted-foreground transition-colors hover:text-foreground">
             Calendar
           </Link>
+          <Link href="/intel" className="text-muted-foreground transition-colors hover:text-foreground">
+            Intel Hub
+          </Link>
         </nav>
         <form action={signOut}>
           <Button variant="ghost" size="sm" type="submit">
