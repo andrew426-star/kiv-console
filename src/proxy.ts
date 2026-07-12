@@ -3,7 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // /api/agents/log is called by external agent backends (Slack bot, Jarvis,
 // etc.) with no Supabase session — it enforces its own bearer-token check.
-const PUBLIC_PATHS = ["/login", "/api/health", "/api/agents/log"];
+// /api/slack/events/[agentId] is Slack's own webhook delivery, likewise no
+// session — it enforces Slack's HMAC request signature instead.
+const PUBLIC_PATHS = ["/login", "/api/health", "/api/agents/log", "/api/slack/events"];
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

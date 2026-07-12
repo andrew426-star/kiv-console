@@ -1,9 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { findAgent } from "@/lib/agents/roster";
-
-const VALID_STATUSES = ["info", "success", "warning", "error"] as const;
-type Status = (typeof VALID_STATUSES)[number];
+import { logAgentActivity, VALID_STATUSES, type LogStatus } from "@/lib/agents/log";
 
 type LogPayload = {
   agentId?: unknown;
@@ -41,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (typeof action !== "string" || action.trim().length === 0) {
     return NextResponse.json({ error: "action is required" }, { status: 400 });
   }
-  if (status !== undefined && !VALID_STATUSES.includes(status as Status)) {
+  if (status !== undefined && !VALID_STATUSES.includes(status as LogStatus)) {
     return NextResponse.json(
       { error: `status must be one of: ${VALID_STATUSES.join(", ")}` },
       { status: 400 },
@@ -51,21 +48,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "detail must be a string" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("agent_activity_log")
-    .insert({
-      agent_id: agentId,
-      action: action.trim(),
-      detail: detail ?? null,
-      status: (status as Status | undefined) ?? "info",
-    })
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const data = await logAgentActivity({
+      agentId,
+      action,
+      detail: detail as string | undefined,
+      status: status as LogStatus | undefined,
+    });
+    return NextResponse.json(data, { status: 201 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Failed to log activity" },
+      { status: 500 },
+    );
   }
-
-  return NextResponse.json(data, { status: 201 });
 }

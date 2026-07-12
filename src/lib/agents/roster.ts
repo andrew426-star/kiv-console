@@ -1,13 +1,16 @@
 // Reference roster for the Kivaro AI sovereign agent team — mirrored from
 // kivaroai.com/agents (src/components/features/AgentTeamSection.tsx in the
-// KivaroAI marketing site repo). This is descriptive reference data; none
-// of these agents are wired into K.I.V. yet — that's Phase 4.
+// KivaroAI marketing site repo). Each agent is backed by a real, distinct
+// Slack app (see src/lib/slack/credentials.ts) and a real Claude model.
+
+export type AgentModel = "claude-opus-4-8" | "claude-sonnet-5";
 
 export type Agent = {
   id: string;
   name: string;
   role: string;
   description: string;
+  model: AgentModel;
 };
 
 export type Division = {
@@ -37,6 +40,7 @@ export const DIVISIONS: Division[] = [
         role: "AI Landscape Monitor",
         description:
           "Tracks emerging AI tools, models, and competitor moves to surface opportunities for Kivaro's roadmap and clients.",
+        model: "claude-opus-4-8",
       },
       {
         id: "meridian",
@@ -44,6 +48,7 @@ export const DIVISIONS: Division[] = [
         role: "Fintech & Alts Analyst",
         description:
           "Delivers institutional-grade analysis on hedge funds, private equity, family offices, and alternative asset classes.",
+        model: "claude-opus-4-8",
       },
       {
         id: "oracle",
@@ -51,6 +56,7 @@ export const DIVISIONS: Division[] = [
         role: "Markets & Crypto Intel",
         description:
           "Monitors price action, on-chain data, macro signals, and crypto narrative cycles across equities and digital assets.",
+        model: "claude-opus-4-8",
       },
       {
         id: "cipher",
@@ -58,6 +64,7 @@ export const DIVISIONS: Division[] = [
         role: "Central Banking & Macro",
         description:
           "Decodes Fed policy, yield curves, inflation regimes, and monetary flows with second-order analysis for fund clients.",
+        model: "claude-opus-4-8",
       },
     ],
   },
@@ -72,6 +79,7 @@ export const DIVISIONS: Division[] = [
         role: "AI Integration Engineer",
         description:
           "Architects and builds AI-powered integrations, automations, and pipelines across Python, Node.js, and custom APIs.",
+        model: "claude-sonnet-5",
       },
       {
         id: "blueprint",
@@ -79,6 +87,7 @@ export const DIVISIONS: Division[] = [
         role: "Demo Build Planner",
         description:
           "Designs compelling AI demos for prospect meetings — translating client pain points into live, credible showcases.",
+        model: "claude-sonnet-5",
       },
       {
         id: "pipeline",
@@ -86,6 +95,7 @@ export const DIVISIONS: Division[] = [
         role: "Lead Engine Manager",
         description:
           "Oversees the Autonomous Lead Engine — monitoring lead quality, enrichment results, and pipeline velocity.",
+        model: "claude-sonnet-5",
       },
       {
         id: "pulse",
@@ -93,6 +103,7 @@ export const DIVISIONS: Division[] = [
         role: "Social Media Automation",
         description:
           "Manages content scheduling, engagement tracking, and growth strategies across LinkedIn and X.",
+        model: "claude-sonnet-5",
       },
     ],
   },
@@ -107,6 +118,7 @@ export const DIVISIONS: Division[] = [
         role: "Company Finance Tracker",
         description:
           "Monitors P&L, cash flow, revenue, expenses, and runway — providing CFO-level clarity for a founder-led operation.",
+        model: "claude-sonnet-5",
       },
       {
         id: "ticker",
@@ -114,6 +126,7 @@ export const DIVISIONS: Division[] = [
         role: "Investment & Price Action",
         description:
           "Tracks the investment portfolio across equities, crypto, and alternatives with entry/exit analysis and position sizing.",
+        model: "claude-sonnet-5",
       },
     ],
   },
@@ -128,6 +141,7 @@ export const DIVISIONS: Division[] = [
         role: "Brand & Advertising",
         description:
           "Manages Kivaro AI's brand presence, ad campaigns, and marketing positioning with a bold, technical voice.",
+        model: "claude-sonnet-5",
       },
       {
         id: "canvas",
@@ -135,6 +149,7 @@ export const DIVISIONS: Division[] = [
         role: "Personal Brand Manager",
         description:
           "Builds thought leadership for Andrew Thomas — positioning him as a leading AI founder across LinkedIn and beyond.",
+        model: "claude-sonnet-5",
       },
     ],
   },
@@ -149,6 +164,7 @@ export const DIVISIONS: Division[] = [
         role: "Document Organization",
         description:
           "Manages the company knowledge base, file taxonomy, and document workflows — nothing gets lost, everything is findable.",
+        model: "claude-sonnet-5",
       },
       {
         id: "accord",
@@ -156,6 +172,7 @@ export const DIVISIONS: Division[] = [
         role: "Contract Management",
         description:
           "Tracks contracts, SOWs, and NDAs — flagging renewals, missing signatures, and key terms before they become risks.",
+        model: "claude-sonnet-5",
       },
       {
         id: "chronicle",
@@ -163,6 +180,7 @@ export const DIVISIONS: Division[] = [
         role: "Scheduling & Reporting",
         description:
           "Manages calendar, meeting prep, and weekly reporting — eliminating scheduling friction and accountability gaps.",
+        model: "claude-sonnet-5",
       },
     ],
   },
