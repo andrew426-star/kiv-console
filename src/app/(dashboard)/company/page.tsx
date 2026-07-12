@@ -5,6 +5,8 @@ import { CommandCenter } from "@/components/company/command-center";
 import { TeamBoard } from "@/components/company/team-board";
 import { UserManagementTable } from "@/components/company/user-management-table";
 import { ClientPortalBoard } from "@/components/company/client-portal-board";
+import { RecordsPanel } from "@/components/company/records-panel";
+import { NewsFeed } from "@/components/company/news-feed";
 
 function SectionSkeleton({ rows = 3 }: { rows?: number }) {
   return (
@@ -21,7 +23,14 @@ function SectionSkeleton({ rows = 3 }: { rows?: number }) {
 export default function CompanyPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
-      <h1 className="text-xl font-semibold">Company Dashboard</h1>
+      <div>
+        <h1 className="font-heading text-2xl font-bold text-gradient-green">
+          Company Dashboard
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          The operational core — real data, live market/news feeds, full create/edit/delete.
+        </p>
+      </div>
 
       <Suspense fallback={<SectionSkeleton rows={1} />}>
         <CommandCenter />
@@ -36,8 +45,16 @@ export default function CompanyPage() {
         </Suspense>
       </div>
 
+      <Suspense fallback={<SectionSkeleton rows={5} />}>
+        <RecordsPanel />
+      </Suspense>
+
       <Suspense fallback={<SectionSkeleton rows={4} />}>
         <ClientPortalBoard />
+      </Suspense>
+
+      <Suspense fallback={<SectionSkeleton />}>
+        <NewsFeed />
       </Suspense>
     </div>
   );

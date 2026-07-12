@@ -19,10 +19,15 @@ export default function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   return (
-    <div className="flex flex-1 items-center justify-center p-16">
-      <Card className="w-full max-w-sm">
+    <div className="grid-pattern flex flex-1 items-center justify-center p-16">
+      <Card className="glow-border w-full max-w-sm animate-fade-up bg-kv-surface/80 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle>K.I.V.</CardTitle>
+          <CardTitle className="font-heading text-2xl font-bold text-gradient-green">
+            K.I.V.
+          </CardTitle>
+          <p className="text-xs tracking-widest text-muted-foreground uppercase">
+            Kivaro Intelligence Vectoring
+          </p>
         </CardHeader>
         <CardContent>
           <form action={signIn} className="flex flex-col gap-4">

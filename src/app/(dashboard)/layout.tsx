@@ -1,19 +1,27 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/app/login/actions";
+import { MarketTicker, MarketTickerSkeleton } from "@/components/market-ticker";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="flex items-center justify-between border-b px-6 py-3">
-        <nav className="flex items-center gap-4 text-sm font-medium">
-          <Link href="/" className="font-semibold tracking-tight">
+      <Suspense fallback={<MarketTickerSkeleton />}>
+        <MarketTicker />
+      </Suspense>
+      <header className="scan-line flex items-center justify-between border-b border-border/50 bg-kv-surface/40 px-6 py-3 backdrop-blur-sm">
+        <nav className="flex items-center gap-6 text-sm font-medium">
+          <Link
+            href="/"
+            className="font-heading text-lg font-bold tracking-tight text-gradient-green"
+          >
             K.I.V.
           </Link>
-          <Link href="/company" className="text-muted-foreground hover:text-foreground">
+          <Link href="/company" className="text-muted-foreground transition-colors hover:text-foreground">
             Company Dashboard
           </Link>
-          <Link href="/calendar" className="text-muted-foreground hover:text-foreground">
+          <Link href="/calendar" className="text-muted-foreground transition-colors hover:text-foreground">
             Calendar
           </Link>
         </nav>

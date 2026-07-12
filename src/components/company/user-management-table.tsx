@@ -14,9 +14,9 @@ export async function UserManagementTable() {
   const profiles = await getProfiles();
 
   return (
-    <Card>
+    <Card className="glow-border-hover">
       <CardHeader>
-        <CardTitle>User Management</CardTitle>
+        <CardTitle className="font-heading">User Management</CardTitle>
       </CardHeader>
       <CardContent>
         <Table>

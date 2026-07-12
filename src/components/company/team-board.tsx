@@ -6,9 +6,9 @@ export async function TeamBoard() {
   const team = await getTeamBoard();
 
   return (
-    <Card>
+    <Card className="glow-border-hover">
       <CardHeader>
-        <CardTitle>Team Board</CardTitle>
+        <CardTitle className="font-heading">Team Board</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {team.length === 0 ? (

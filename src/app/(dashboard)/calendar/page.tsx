@@ -13,9 +13,9 @@ async function CalendarContent({
 
   if (!state.connected) {
     return (
-      <Card>
+      <Card className="glow-border-hover">
         <CardHeader>
-          <CardTitle>Calendar</CardTitle>
+          <CardTitle className="font-heading">Calendar</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {error ? <p className="text-sm text-destructive">Connection failed: {error}</p> : null}
@@ -32,9 +32,9 @@ async function CalendarContent({
   }
 
   return (
-    <Card>
+    <Card className="glow-border-hover">
       <CardHeader>
-        <CardTitle>Calendar — {state.calendarEmail}</CardTitle>
+        <CardTitle className="font-heading">Calendar — {state.calendarEmail}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {state.events.length === 0 ? (
@@ -83,7 +83,7 @@ export default function CalendarPage({
 }) {
   return (
     <div className="flex flex-col gap-6 p-6">
-      <h1 className="text-xl font-semibold">Calendar</h1>
+      <h1 className="font-heading text-2xl font-bold text-gradient-green">Calendar</h1>
       <Suspense fallback={<CalendarSkeleton />}>
         <CalendarContent searchParams={searchParams} />
       </Suspense>

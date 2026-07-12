@@ -62,8 +62,52 @@ export async function getClientPortalBoard() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("deliverables")
-    .select("id, title, stage, due_date, clients(name)")
+    .select("id, title, stage, due_date, client_id, project_id, clients(name)")
     .order("due_date", { ascending: true, nullsFirst: false });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function getClients() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, name, status, created_at")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getProjects() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, name, status, client_id, owner_id, clients(name), profiles(full_name)")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getTasks() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("id, title, status, due_date, project_id, assignee_id, projects(name), profiles(full_name)")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getFormOptions() {
+  const supabase = await createClient();
+  const [{ data: clients }, { data: projects }, { data: profiles }] = await Promise.all([
+    supabase.from("clients").select("id, name").order("name"),
+    supabase.from("projects").select("id, name").order("name"),
+    supabase.from("profiles").select("id, full_name").order("full_name"),
+  ]);
+  return {
+    clients: clients ?? [],
+    projects: projects ?? [],
+    profiles: profiles ?? [],
+  };
 }
