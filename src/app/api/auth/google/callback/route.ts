@@ -2,13 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { exchangeCodeForTokens, fetchGoogleUserEmail } from "@/lib/calendar/google";
+import { getPublicOrigin } from "@/lib/origin";
 
 export async function GET(request: NextRequest) {
+  const origin = getPublicOrigin(request);
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
 
   if (!code || !state) {
-    return NextResponse.redirect(new URL("/calendar?error=missing_code", request.url));
+    return NextResponse.redirect(new URL("/calendar?error=missing_code", origin));
   }
 
   const supabase = await createClient();
@@ -19,15 +21,15 @@ export async function GET(request: NextRequest) {
   // state carries the user id that initiated the flow, so a callback can't
   // be replayed against a different signed-in session.
   if (!user || user.id !== state) {
-    return NextResponse.redirect(new URL("/calendar?error=session_mismatch", request.url));
+    return NextResponse.redirect(new URL("/calendar?error=session_mismatch", origin));
   }
 
-  const redirectUri = new URL("/api/auth/google/callback", request.url).toString();
+  const redirectUri = new URL("/api/auth/google/callback", origin).toString();
 
   try {
     const tokens = await exchangeCodeForTokens(code, redirectUri);
     if (!tokens.refresh_token) {
-      return NextResponse.redirect(new URL("/calendar?error=no_refresh_token", request.url));
+      return NextResponse.redirect(new URL("/calendar?error=no_refresh_token", origin));
     }
 
     const email = await fetchGoogleUserEmail(tokens.access_token);
@@ -42,9 +44,9 @@ export async function GET(request: NextRequest) {
     });
     if (error) throw error;
 
-    return NextResponse.redirect(new URL("/calendar", request.url));
+    return NextResponse.redirect(new URL("/calendar", origin));
   } catch (err) {
     console.error("Google OAuth callback failed", err);
-    return NextResponse.redirect(new URL("/calendar?error=exchange_failed", request.url));
+    return NextResponse.redirect(new URL("/calendar?error=exchange_failed", origin));
   }
 }
