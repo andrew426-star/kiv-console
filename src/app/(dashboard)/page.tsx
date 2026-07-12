@@ -54,10 +54,12 @@ export default function Home() {
         <PlaceholderCard
           title="Security"
           description="Ultron will monitor Kivaro's own infrastructure — Railway, Vercel, Supabase, GitHub — here once it's built."
+          href="/security"
         />
         <PlaceholderCard
           title="Autonomy"
           description="The Autonomous Lead Engine's pipeline activity will surface here once it's built."
+          href="/autonomy"
         />
         <PlaceholderCard
           title="Inbox"
