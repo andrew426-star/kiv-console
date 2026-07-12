@@ -1,36 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# kiv-console
 
-## Getting Started
+**K.I.V. — Kivaro Intelligence Vectoring.** The unified operating system for
+Kivaro AI: a real-time command platform that runs the firm from a single
+interface.
 
-First, run the development server:
+Built incrementally, module by module:
+
+1. Foundation (this state) — Next.js 16 + Cache Components, Tailwind,
+   shadcn/ui, Supabase schema, CI.
+2. Company Dashboard — Command Center, Team Board, User Management, Kanban
+   Client Portal.
+3. Calendar — Google Calendar OAuth.
+4. Intel Hub — crypto/equities/forex/commodities, watchlists, price alerts.
+5. News feed — curated Fintech/AI/Alt-Investment feed.
+6. Research — AI-written daily brief (Claude API), on a Vercel Cron job.
+7. Overview (home page) — assembles everything above; placeholders for
+   Ultron security status and ALE activity until those systems exist.
+8. Auth/roles hardening.
+9. CAD Engine (stretch, deprioritized).
+
+## Develop
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # fill in Supabase credentials once the project exists
+npm run dev                  # http://localhost:3000
+npm run ci                   # lint + typecheck + test + build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Database
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Schema lives in `supabase/migrations/`. Once a Supabase project exists, apply
+it either via the Supabase SQL editor (paste the migration file) or via the
+Supabase CLI:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+supabase link --project-ref <ref>
+supabase db push
+```
 
-## Learn More
+## Deploy
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploys to Vercel. Connect the GitHub repo in the Vercel dashboard (or
+`vercel link` + `vercel --prod`), then set the environment variables from
+`.env.example` in the Vercel project settings.
