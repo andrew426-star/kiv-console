@@ -17,6 +17,14 @@ export type Division = {
   agents: Agent[];
 };
 
+export function findAgent(agentId: string): { agent: Agent; division: Division } | null {
+  for (const division of DIVISIONS) {
+    const agent = division.agents.find((a) => a.id === agentId);
+    if (agent) return { agent, division };
+  }
+  return null;
+}
+
 export const DIVISIONS: Division[] = [
   {
     id: "RNI",

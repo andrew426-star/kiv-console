@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/api/health"];
+// /api/agents/log is called by external agent backends (Slack bot, Jarvis,
+// etc.) with no Supabase session — it enforces its own bearer-token check.
+const PUBLIC_PATHS = ["/login", "/api/health", "/api/agents/log"];
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
