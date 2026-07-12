@@ -1,6 +1,10 @@
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
-const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+// calendar.readonly for events; userinfo.email so /oauth2/v2/userinfo can
+// tell us which Google account got connected (shown in the UI) — without
+// it, the userinfo call 401s even with a perfectly valid calendar token.
+const CALENDAR_SCOPE =
+  "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email";
 
 export function buildGoogleAuthUrl(redirectUri: string, state: string) {
   const params = new URLSearchParams({
