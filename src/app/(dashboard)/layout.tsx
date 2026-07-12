@@ -13,6 +13,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/company" className="text-muted-foreground hover:text-foreground">
             Company Dashboard
           </Link>
+          <Link href="/calendar" className="text-muted-foreground hover:text-foreground">
+            Calendar
+          </Link>
         </nav>
         <form action={signOut}>
           <Button variant="ghost" size="sm" type="submit">
