@@ -14,6 +14,7 @@ type SlackEventPayload = {
     type: string;
     text?: string;
     channel?: string;
+    channel_type?: string;
     bot_id?: string;
     thread_ts?: string;
     ts?: string;
@@ -78,7 +79,11 @@ export async function POST(
 
   const event = payload.event;
   const isMention = event?.type === "app_mention";
-  const isDirectMessage = event?.type === "message" && !event.bot_id;
+  // channel_type "im" is required here — without it, a plain "message"
+  // event fires for every bot present in a channel for every message sent
+  // there (not just DMs), which made all 15 agents reply to one @mention.
+  const isDirectMessage =
+    event?.type === "message" && event.channel_type === "im" && !event.bot_id;
 
   if (
     payload.type === "event_callback" &&
@@ -88,7 +93,10 @@ export async function POST(
   ) {
     const channel = event.channel;
     const text = event.text;
-    const threadTs = event.thread_ts ?? event.ts;
+    // Only thread the reply if the triggering message was already inside a
+    // thread — a fresh mention should post as a normal channel message, not
+    // start a thread.
+    const threadTs = event.thread_ts;
 
     // Slack requires a 200 within ~3s or it retries delivery; a tool-using
     // Claude call routinely takes longer than that. Ack now, do the real
