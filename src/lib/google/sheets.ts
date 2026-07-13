@@ -20,8 +20,13 @@ export async function appendRows(
 ): Promise<void> {
   if (rows.length === 0) return;
   const range = `'${tabTitle}'!A1`;
+  // RAW, not USER_ENTERED — USER_ENTERED parses cell content the way the
+  // Sheets UI would, which treats a leading "+" (as in "+1 214-370-9985")
+  // as the start of a formula and writes #ERROR! instead of the phone
+  // number. RAW stores every value literally; nothing here needs
+  // formula/date parsing.
   const res = await fetch(
-    `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`,
+    `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=RAW`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -29,6 +34,20 @@ export async function appendRows(
     },
   );
   if (!res.ok) throw new Error(`Sheets append failed for "${tabTitle}": ${await res.text()}`);
+}
+
+// Clears a range's values without deleting the row/column itself — used to
+// wipe a bad write during development. Rarely needed in normal operation.
+export async function clearRange(
+  accessToken: string,
+  spreadsheetId: string,
+  range: string,
+): Promise<void> {
+  const res = await fetch(
+    `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}:clear`,
+    { method: "POST", headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) throw new Error(`Sheets clear failed for "${range}": ${await res.text()}`);
 }
 
 // Creates the tab with a header row if it doesn't already exist. Safe to

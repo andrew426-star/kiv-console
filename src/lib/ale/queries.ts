@@ -1,6 +1,13 @@
 import { getWorkspaceAccessToken } from "@/lib/google/access-token";
-import { getSheetTabTitles, getRows } from "@/lib/google/sheets";
-import { GLE_SPREADSHEET_ID, MAPS_DATA_TAB, WEBSITES_TAB, HUNTER_TAB } from "./spreadsheets";
+import { getSheetTabTitles, getRows, getColumnValues } from "@/lib/google/sheets";
+import {
+  GLE_SPREADSHEET_ID,
+  MAPS_DATA_TAB,
+  WEBSITES_TAB,
+  HUNTER_TAB,
+  ALE_SPREADSHEET_ID,
+  COMPANIES_TAB,
+} from "./spreadsheets";
 
 export type Lead = {
   placeId: string;
@@ -11,6 +18,7 @@ export type Lead = {
   state: string;
   website: string | null;
   contactCount: number;
+  researched: boolean;
 };
 
 export type LeadsResult =
@@ -18,26 +26,32 @@ export type LeadsResult =
   | { connected: true; leads: Lead[] }
   | { connected: true; fetchError: string };
 
-// Reads live from the real GLE spreadsheet — there is no local copy of this
-// data. A fetch failure (e.g. the Google connection needs re-consent for a
-// new scope) surfaces as an honest fetchError rather than crashing the
-// page — same discriminated-union shape as getCalendarState().
+// Reads live from the real GLE/ALE spreadsheets — there is no local copy of
+// this data. A fetch failure (e.g. the Google connection needs re-consent
+// for a new scope) surfaces as an honest fetchError rather than crashing
+// the page — same discriminated-union shape as getCalendarState().
 export async function getLeads(): Promise<LeadsResult> {
   const accessToken = await getWorkspaceAccessToken();
   if (!accessToken) return { connected: false };
 
   try {
-    const tabs = await getSheetTabTitles(accessToken, GLE_SPREADSHEET_ID);
-    if (!tabs.includes(MAPS_DATA_TAB)) return { connected: true, leads: [] };
+    const [gleTabs, aleTabs] = await Promise.all([
+      getSheetTabTitles(accessToken, GLE_SPREADSHEET_ID),
+      getSheetTabTitles(accessToken, ALE_SPREADSHEET_ID),
+    ]);
+    if (!gleTabs.includes(MAPS_DATA_TAB)) return { connected: true, leads: [] };
 
-    const [mapsRows, websiteRows, hunterRows] = await Promise.all([
+    const [mapsRows, websiteRows, hunterRows, researchedPlaceIds] = await Promise.all([
       getRows(accessToken, GLE_SPREADSHEET_ID, MAPS_DATA_TAB),
-      tabs.includes(WEBSITES_TAB)
+      gleTabs.includes(WEBSITES_TAB)
         ? getRows(accessToken, GLE_SPREADSHEET_ID, WEBSITES_TAB)
         : Promise.resolve([] as string[][]),
-      tabs.includes(HUNTER_TAB)
+      gleTabs.includes(HUNTER_TAB)
         ? getRows(accessToken, GLE_SPREADSHEET_ID, HUNTER_TAB)
         : Promise.resolve([] as string[][]),
+      aleTabs.includes(COMPANIES_TAB)
+        ? getColumnValues(accessToken, ALE_SPREADSHEET_ID, COMPANIES_TAB, "A") // Company Name
+        : Promise.resolve([] as string[]),
     ]);
 
     // Websites columns: name, website, place_id, formatted_address, user_ratings_total, rating
@@ -51,6 +65,8 @@ export async function getLeads(): Promise<LeadsResult> {
       contactCountByPlaceId.set(placeId, (contactCountByPlaceId.get(placeId) ?? 0) + 1);
     }
 
+    const researched = new Set(researchedPlaceIds);
+
     // Maps Data columns: name, place_id, types, rating, address, latitude, longitude, state
     const leads = mapsRows
       .map((r) => ({
@@ -62,6 +78,9 @@ export async function getLeads(): Promise<LeadsResult> {
         state: r[7] ?? "",
         website: websiteByPlaceId.get(r[1]) ?? null,
         contactCount: contactCountByPlaceId.get(r[1]) ?? 0,
+        // Companies tab has no place_id column (pre-existing schema) — keyed
+        // by Company Name instead.
+        researched: researched.has(r[0]),
       }))
       .reverse();
 

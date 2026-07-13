@@ -52,28 +52,32 @@ export const HUNTER_HEADER = [
   "phone_number",
 ];
 
-// Stage 2 — Autonomous Lead Engine (ALE spreadsheet)
+// Stage 2 — Autonomous Lead Engine (ALE spreadsheet). Both tabs already
+// existed with real data before this pipeline touched them (confirmed via
+// the Sheets API, not the original spec's field list) — these headers
+// match what's actually there, keyed by Company Name rather than
+// place_id since that column doesn't exist in the real sheet.
 export const COMPANIES_TAB = "Companies";
 export const COMPANIES_HEADER = [
-  "place_id",
   "Company Name",
   "Website",
   "Location",
   "Phone",
-  "Business Overview",
+  "Business Overview (Strategy, Capital & Scale)",
+  "AUM",
+  "Researched",
 ];
 
 export const CONTACTS_TAB = "Contacts";
 export const CONTACTS_HEADER = [
-  "place_id",
   "Company Name",
   "Website",
   "Location",
   "Phone",
   "Business Overview",
-  "Person",
+  "Contact Name",
   "Title",
-  "Person Email Address",
+  "Email",
   "LinkedIn",
   "Instagram",
   "Twitter (X)",

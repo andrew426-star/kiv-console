@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { getLeads } from "@/lib/ale/queries";
 import { EnrichButton } from "./enrich-button";
+import { ResearchButton } from "./research-button";
 
 export async function LeadsTable() {
   const result = await getLeads();
@@ -64,7 +65,7 @@ export async function LeadsTable() {
                 <TableHead>Rating</TableHead>
                 <TableHead>Website</TableHead>
                 <TableHead>Contacts</TableHead>
-                <TableHead />
+                <TableHead>Research</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -102,6 +103,17 @@ export async function LeadsTable() {
                     {lead.website && lead.contactCount === 0 ? (
                       <EnrichButton placeId={lead.placeId} />
                     ) : null}
+                  </TableCell>
+                  <TableCell>
+                    {lead.researched ? (
+                      <Badge variant="outline" className="border-kv-mint/40 text-kv-mint">
+                        Researched
+                      </Badge>
+                    ) : lead.contactCount > 0 ? (
+                      <ResearchButton placeId={lead.placeId} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Enrich first</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { discoverCompanies } from "./discover";
 import { enrichWithHunter } from "./enrich";
+import { researchCompanyAndContacts } from "./research";
 import { logAgentActivity } from "@/lib/agents/log";
 
 export async function runDiscovery(formData: FormData) {
@@ -43,6 +44,27 @@ export async function runEnrichment(placeId: string) {
     await logAgentActivity({
       agentId: "pipeline",
       action: "Enrichment failed",
+      detail: err instanceof Error ? err.message : "Unknown error",
+      status: "error",
+    }).catch(() => {});
+    throw err;
+  }
+}
+
+export async function runResearch(placeId: string) {
+  try {
+    const result = await researchCompanyAndContacts(placeId);
+    await logAgentActivity({
+      agentId: "pipeline",
+      action: "Researched company + contacts",
+      detail: `${result.contactsWritten} contacts written to ALE`,
+      status: "success",
+    }).catch(() => {});
+    revalidatePath("/autonomy");
+  } catch (err) {
+    await logAgentActivity({
+      agentId: "pipeline",
+      action: "Research failed",
       detail: err instanceof Error ? err.message : "Unknown error",
       status: "error",
     }).catch(() => {});
