@@ -1,0 +1,84 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { getLeads } from "@/lib/ale/queries";
+import { EnrichButton } from "./enrich-button";
+
+export async function LeadsTable() {
+  const leads = await getLeads();
+
+  return (
+    <Card className="glow-border-hover">
+      <CardHeader>
+        <CardTitle className="font-heading">Leads</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {leads.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No leads yet — run a discovery search above, or wait for tomorrow&apos;s 8am
+            automatic run.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Company</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Rating</TableHead>
+                <TableHead>Website</TableHead>
+                <TableHead>Contacts</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {leads.map((lead) => (
+                <TableRow key={lead.placeId}>
+                  <TableCell className="font-medium">{lead.name}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {lead.state || lead.address}
+                  </TableCell>
+                  <TableCell className="tabular-nums text-xs">{lead.rating || "—"}</TableCell>
+                  <TableCell>
+                    {lead.website ? (
+                      <a
+                        href={lead.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-primary hover:underline"
+                      >
+                        {lead.website.replace(/^https?:\/\//, "")}
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {lead.contactCount > 0 ? (
+                      <Badge variant="outline" className="border-kv-mint/40 text-kv-mint">
+                        {lead.contactCount} found
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">None yet</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {lead.website && lead.contactCount === 0 ? (
+                      <EnrichButton placeId={lead.placeId} />
+                    ) : null}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

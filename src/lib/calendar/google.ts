@@ -1,10 +1,29 @@
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
-// calendar.readonly for events; userinfo.email so /oauth2/v2/userinfo can
-// tell us which Google account got connected (shown in the UI) — without
-// it, the userinfo call 401s even with a perfectly valid calendar token.
-const CALENDAR_SCOPE =
-  "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email";
+// Despite the name, this is now K.I.V.'s general Google Workspace
+// connection, not just Calendar — the Autonomous Lead Engine reuses the
+// same OAuth grant for Sheets/Docs/Drive/Gmail rather than a separate
+// service account, so it needs a broader scope set:
+// - calendar.readonly: existing Calendar module
+// - userinfo.email: so /oauth2/v2/userinfo can tell us which account
+//   connected (shown in the UI) — without it, that call 401s even with an
+//   otherwise-valid token
+// - spreadsheets / documents: read/write ALE's existing Sheets and create
+//   Sales Pitch Docs. Note these (unlike drive.file) grant access to files
+//   that already exist and weren't created by this app.
+// - drive: needed (not the narrower drive.file) to find the pre-existing
+//   "Sales Pitches: Investment Institutions" folder by name and place new
+//   Docs into it — drive.file only sees files the app itself created.
+// - gmail.send: the ALE daily-run completion email. Send-only, no inbox
+//   read access.
+const CALENDAR_SCOPE = [
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/userinfo.email",
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/documents",
+  "https://www.googleapis.com/auth/drive",
+  "https://www.googleapis.com/auth/gmail.send",
+].join(" ");
 
 export function buildGoogleAuthUrl(redirectUri: string, state: string) {
   const params = new URLSearchParams({
