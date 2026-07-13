@@ -5,7 +5,15 @@ import { NextResponse, type NextRequest } from "next/server";
 // etc.) with no Supabase session — it enforces its own bearer-token check.
 // /api/slack/events/[agentId] is Slack's own webhook delivery, likewise no
 // session — it enforces Slack's HMAC request signature instead.
-const PUBLIC_PATHS = ["/login", "/api/health", "/api/agents/log", "/api/slack/events"];
+// /api/ale/batch is the weekday-batch GitHub Actions cron, same bearer-token
+// pattern as /api/agents/log.
+const PUBLIC_PATHS = [
+  "/login",
+  "/api/health",
+  "/api/agents/log",
+  "/api/slack/events",
+  "/api/ale/batch",
+];
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

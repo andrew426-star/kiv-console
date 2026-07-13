@@ -37,3 +37,11 @@ export async function moveFileToFolder(
   });
   if (!res.ok) throw new Error(`Drive move-to-folder failed: ${await res.text()}`);
 }
+
+export async function deleteFile(accessToken: string, fileId: string): Promise<void> {
+  const res = await fetch(`${DRIVE_BASE}/files/${fileId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) throw new Error(`Drive delete failed: ${await res.text()}`);
+}

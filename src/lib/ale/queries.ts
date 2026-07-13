@@ -7,6 +7,8 @@ import {
   HUNTER_TAB,
   ALE_SPREADSHEET_ID,
   COMPANIES_TAB,
+  SALES_PITCH_LOG_SPREADSHEET_ID,
+  SALES_PITCH_LOG_TAB,
 } from "./spreadsheets";
 
 export type Lead = {
@@ -19,6 +21,7 @@ export type Lead = {
   website: string | null;
   contactCount: number;
   researched: boolean;
+  pitched: boolean;
 };
 
 export type LeadsResult =
@@ -41,7 +44,7 @@ export async function getLeads(): Promise<LeadsResult> {
     ]);
     if (!gleTabs.includes(MAPS_DATA_TAB)) return { connected: true, leads: [] };
 
-    const [mapsRows, websiteRows, hunterRows, researchedPlaceIds] = await Promise.all([
+    const [mapsRows, websiteRows, hunterRows, researchedPlaceIds, pitchedNames] = await Promise.all([
       getRows(accessToken, GLE_SPREADSHEET_ID, MAPS_DATA_TAB),
       gleTabs.includes(WEBSITES_TAB)
         ? getRows(accessToken, GLE_SPREADSHEET_ID, WEBSITES_TAB)
@@ -52,6 +55,12 @@ export async function getLeads(): Promise<LeadsResult> {
       aleTabs.includes(COMPANIES_TAB)
         ? getColumnValues(accessToken, ALE_SPREADSHEET_ID, COMPANIES_TAB, "A") // Company Name
         : Promise.resolve([] as string[]),
+      // Separate spreadsheet — the "ALE Sales Pitch Log" tab doesn't exist
+      // until the first sales pitch is ever generated, so a missing-tab
+      // error here just means "nothing pitched yet."
+      getColumnValues(accessToken, SALES_PITCH_LOG_SPREADSHEET_ID, SALES_PITCH_LOG_TAB, "A").catch(
+        () => [] as string[],
+      ),
     ]);
 
     // Websites columns: name, website, place_id, formatted_address, user_ratings_total, rating
@@ -66,6 +75,7 @@ export async function getLeads(): Promise<LeadsResult> {
     }
 
     const researched = new Set(researchedPlaceIds);
+    const pitched = new Set(pitchedNames);
 
     // Maps Data columns: name, place_id, types, rating, address, latitude, longitude, state
     const leads = mapsRows
@@ -78,9 +88,10 @@ export async function getLeads(): Promise<LeadsResult> {
         state: r[7] ?? "",
         website: websiteByPlaceId.get(r[1]) ?? null,
         contactCount: contactCountByPlaceId.get(r[1]) ?? 0,
-        // Companies tab has no place_id column (pre-existing schema) — keyed
-        // by Company Name instead.
+        // Companies/Sales Pitch Log tabs have no place_id column (pre-existing
+        // schema) — both keyed by Company Name instead.
         researched: researched.has(r[0]),
+        pitched: pitched.has(r[0]),
       }))
       .reverse();
 

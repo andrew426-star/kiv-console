@@ -62,16 +62,26 @@ ${contactList}
 Respond with ONLY a JSON object, no other text, in exactly this shape:
 {"businessOverview": "...", "aum": "...", "contacts": [{"name": "...", "instagram": "..." or null, "facebook": "..." or null}]}`;
 
-  const response = await client.messages.create({
+  // Streamed + a larger budget than a plain single-shot call — 2048 was
+  // getting truncated mid-JSON on companies needing more web-search turns
+  // (no closing brace ever appeared, so the regex below found nothing).
+  const stream = client.messages.stream({
     model: "claude-opus-4-8",
-    max_tokens: 2048,
+    max_tokens: 8000,
     thinking: { type: "adaptive" },
     tools: [{ type: "web_search_20260209", name: "web_search" }],
     messages: [{ role: "user", content: prompt }],
   });
+  for await (const _event of stream) {
+    void _event;
+  }
+  const response = await stream.finalMessage();
 
   if (response.stop_reason === "refusal") {
     throw new Error("Claude declined to research this company");
+  }
+  if (response.stop_reason === "max_tokens") {
+    throw new Error("Claude's research response was truncated (hit max_tokens)");
   }
 
   const text = response.content

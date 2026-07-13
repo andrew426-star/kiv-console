@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { discoverCompanies } from "./discover";
 import { enrichWithHunter } from "./enrich";
 import { researchCompanyAndContacts } from "./research";
+import { generateSalesPitch } from "./salespitch";
 import { logAgentActivity } from "@/lib/agents/log";
 
 export async function runDiscovery(formData: FormData) {
@@ -65,6 +66,29 @@ export async function runResearch(placeId: string) {
     await logAgentActivity({
       agentId: "pipeline",
       action: "Research failed",
+      detail: err instanceof Error ? err.message : "Unknown error",
+      status: "error",
+    }).catch(() => {});
+    throw err;
+  }
+}
+
+export async function runSalesPitch(placeId: string) {
+  try {
+    const result = await generateSalesPitch(placeId);
+    await logAgentActivity({
+      agentId: "pipeline",
+      action: "Generated sales pitch",
+      detail: result.folderFound
+        ? `Doc: ${result.docUrl}`
+        : `Doc: ${result.docUrl} (Drive folder "Sales Pitches: Investment Institutions" not found — left in My Drive)`,
+      status: "success",
+    }).catch(() => {});
+    revalidatePath("/autonomy");
+  } catch (err) {
+    await logAgentActivity({
+      agentId: "pipeline",
+      action: "Sales pitch generation failed",
       detail: err instanceof Error ? err.message : "Unknown error",
       status: "error",
     }).catch(() => {});

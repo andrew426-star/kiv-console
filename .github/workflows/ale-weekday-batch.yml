@@ -1,0 +1,20 @@
+name: ALE weekday batch
+
+# Advances up to 5 leads/day through Hunter enrichment (if needed) -> Stage 2
+# (Companies/Contacts) -> Stage 3 (Sales Pitch doc). Auto-tops-up the
+# backlog with a fresh discovery run if it's ever empty. Weekdays only —
+# adjust the cron below if the desired local run time changes.
+on:
+  schedule:
+    - cron: "0 13 * * 1-5" # ~8am US Central (weekdays)
+  workflow_dispatch: {}
+
+jobs:
+  run-batch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger weekday batch
+        run: |
+          curl --fail-with-body -X POST \
+            -H "Authorization: Bearer ${{ secrets.ALE_BATCH_API_KEY }}" \
+            https://kiv-console-production.up.railway.app/api/ale/batch

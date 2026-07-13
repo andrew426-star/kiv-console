@@ -84,33 +84,46 @@ export const CONTACTS_HEADER = [
   "Facebook",
 ];
 
-// Stage 3 — Sales Pitch Sub-Engine (Sales Pitch Log spreadsheet)
+// Stage 3 — Sales Pitch Sub-Engine (Sales Pitch Log spreadsheet). All three
+// of these tabs already existed (header row only, no data yet) with a
+// different, richer schema than the original spec's field list — matching
+// what's actually there, same as Stage 2's lesson. No place_id column
+// anywhere in this spreadsheet either.
 export const HISTORY_TAB = "History of Company";
-export const HISTORY_HEADER = ["place_id", "Company", "Company History", "Key Achievements", "Hook"];
+export const HISTORY_HEADER = ["Company", "Company History", "Key Achievements", "Hook"];
 
 export const PROBLEMS_TAB = "Problems";
 export const PROBLEMS_HEADER = [
-  "place_id",
   "Company",
-  "Problem",
-  "Proposed Solution",
-  "Platforms",
-  "Code Languages",
-  "Plan",
-  "Detailed Use",
-  "Demo Description",
+  "Source URL",
+  "Date",
+  "Operational Pain Point",
+  "Proposed AI/No-Code Solution",
 ];
 
 export const NEW_ERA_TAB = "\"New Era\" Proposition/No Problems";
-export const NEW_ERA_HEADER = ["place_id", "Company", "AI Integration Idea"];
+export const NEW_ERA_HEADER = [
+  "Company",
+  "Strategic Opportunity",
+  "Use Case",
+  "Architecture",
+  "Components",
+  "Demo Setup",
+  "Live Demo Script",
+  "Pre-Built vs Build Live",
+  "Benefit",
+];
 
+// This tab didn't exist yet (unlike the three above) — designed to match
+// the same Company-Name-keyed convention as everything else in these
+// spreadsheets.
 export const SALES_PITCH_LOG_TAB = "ALE Sales Pitch Log";
 export const SALES_PITCH_LOG_HEADER = [
-  "place_id",
   "Company",
   "Doc URL",
   "Initial Pitch",
   "Email Variation",
   "Follow-Up Call Variation",
+  "Demo Setup",
   "Generated At",
 ];

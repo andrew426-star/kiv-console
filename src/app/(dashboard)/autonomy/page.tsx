@@ -32,14 +32,19 @@ export default function AutonomyPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-heading">Autonomous Lead Engine</CardTitle>
           <Badge variant="outline" className="border-kv-mint/40 text-kv-mint">
-            Stage 1 live — Discovery &amp; Enrichment
+            All 3 stages live
           </Badge>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           <p className="text-sm text-muted-foreground">
-            Discovery (Google Places) and Hunter.io enrichment write directly into the real
-            Geolocation Lead Engine spreadsheet — this page is a live window into it, not a copy.
-            The deep company-research and Sales Pitch stages are still being built.
+            Discovery, Hunter.io enrichment, company research, and Sales Pitch doc generation all
+            write directly into the real Geolocation Lead Engine, Autonomous Lead Engine, and
+            Sales Pitch Log spreadsheets — this page is a live window into them, not a copy.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            A weekday automation advances up to 5 backlogged leads through enrichment, research,
+            and a finished pitch doc each morning — the buttons below are for running any stage
+            manually, out of turn.
           </p>
           <p className="text-sm text-muted-foreground">
             Monitored day-to-day by{" "}

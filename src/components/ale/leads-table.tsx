@@ -12,6 +12,7 @@ import {
 import { getLeads } from "@/lib/ale/queries";
 import { EnrichButton } from "./enrich-button";
 import { ResearchButton } from "./research-button";
+import { PitchButton } from "./pitch-button";
 
 export async function LeadsTable() {
   const result = await getLeads();
@@ -66,6 +67,7 @@ export async function LeadsTable() {
                 <TableHead>Website</TableHead>
                 <TableHead>Contacts</TableHead>
                 <TableHead>Research</TableHead>
+                <TableHead>Sales Pitch</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -113,6 +115,17 @@ export async function LeadsTable() {
                       <ResearchButton placeId={lead.placeId} />
                     ) : (
                       <span className="text-xs text-muted-foreground">Enrich first</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {lead.pitched ? (
+                      <Badge variant="outline" className="border-kv-mint/40 text-kv-mint">
+                        Pitched
+                      </Badge>
+                    ) : lead.researched ? (
+                      <PitchButton placeId={lead.placeId} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Research first</span>
                     )}
                   </TableCell>
                 </TableRow>
