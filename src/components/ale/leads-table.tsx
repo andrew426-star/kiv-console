@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableHeader,
@@ -12,7 +13,7 @@ import { getLeads } from "@/lib/ale/queries";
 import { EnrichButton } from "./enrich-button";
 
 export async function LeadsTable() {
-  const leads = await getLeads();
+  const result = await getLeads();
 
   return (
     <Card className="glow-border-hover">
@@ -20,10 +21,39 @@ export async function LeadsTable() {
         <CardTitle className="font-heading">Leads</CardTitle>
       </CardHeader>
       <CardContent>
-        {leads.length === 0 ? (
+        {!result.connected ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              Not connected. Connect Google to let ALE read/write the Geolocation Lead Engine
+              spreadsheet.
+            </p>
+            <a
+              href="/api/auth/google/connect"
+              className={buttonVariants({ className: "w-fit", size: "sm" })}
+            >
+              Connect Google
+            </a>
+          </div>
+        ) : "fetchError" in result ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-destructive">
+              Connected, but the last fetch failed: {result.fetchError}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              If this mentions insufficient scope or invalid credentials, the connection needs to
+              be re-authorized for Sheets/Docs/Drive access.
+            </p>
+            <a
+              href="/api/auth/google/connect"
+              className={buttonVariants({ variant: "outline", className: "w-fit", size: "sm" })}
+            >
+              Reconnect Google
+            </a>
+          </div>
+        ) : result.leads.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No leads yet — run a discovery search above, or wait for tomorrow&apos;s 8am
-            automatic run.
+            No leads yet — run a discovery search above, or wait for tomorrow&apos;s 8am automatic
+            run.
           </p>
         ) : (
           <Table>
@@ -38,7 +68,7 @@ export async function LeadsTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {leads.map((lead) => (
+              {result.leads.map((lead) => (
                 <TableRow key={lead.placeId}>
                   <TableCell className="font-medium">{lead.name}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
