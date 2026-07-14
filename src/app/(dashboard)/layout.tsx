@@ -27,6 +27,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/intel" className="text-muted-foreground transition-colors hover:text-foreground">
             Intel Hub
           </Link>
+          <Link href="/portfolio" className="text-muted-foreground transition-colors hover:text-foreground">
+            Portfolio
+          </Link>
           <Link href="/research" className="text-muted-foreground transition-colors hover:text-foreground">
             Research
           </Link>
