@@ -1,5 +1,5 @@
-import { getClients, getProjects, getTasks, getFormOptions } from "@/lib/company/queries";
-import { deleteClientRecord, deleteProjectRecord, deleteTaskRecord } from "@/lib/company/actions";
+import { getProjects, getTasks, getFormOptions } from "@/lib/company/queries";
+import { deleteProjectRecord, deleteTaskRecord } from "@/lib/company/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,14 +11,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClientFormDialog } from "./client-form-dialog";
 import { ProjectFormDialog } from "./project-form-dialog";
 import { TaskFormDialog } from "./task-form-dialog";
 import { DeleteButton } from "./delete-button";
 
-export async function RecordsPanel() {
-  const [clients, projects, tasks, options] = await Promise.all([
-    getClients(),
+export async function ProjectTaskBoard() {
+  const [projects, tasks, options] = await Promise.all([
     getProjects(),
     getTasks(),
     getFormOptions(),
@@ -27,57 +25,14 @@ export async function RecordsPanel() {
   return (
     <Card className="glow-border-hover">
       <CardHeader>
-        <CardTitle className="font-heading">Records</CardTitle>
+        <CardTitle className="font-heading">Projects &amp; Tasks</CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="clients">
+        <Tabs defaultValue="projects">
           <TabsList>
-            <TabsTrigger value="clients">Clients ({clients.length})</TabsTrigger>
             <TabsTrigger value="projects">Projects ({projects.length})</TabsTrigger>
             <TabsTrigger value="tasks">Tasks ({tasks.length})</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="clients" className="flex flex-col gap-3 pt-3">
-            <div className="flex justify-end">
-              <ClientFormDialog triggerLabel="+ New client" />
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {clients.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-sm text-muted-foreground">
-                      No clients yet. Add the first one above.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  clients.map((client) => (
-                    <TableRow key={client.id}>
-                      <TableCell className="font-medium">{client.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{client.status}</Badge>
-                      </TableCell>
-                      <TableCell className="flex justify-end gap-2">
-                        <ClientFormDialog
-                          triggerLabel="Edit"
-                          triggerVariant="outline"
-                          triggerSize="xs"
-                          client={client}
-                        />
-                        <DeleteButton action={deleteClientRecord.bind(null, client.id)} />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TabsContent>
 
           <TabsContent value="projects" className="flex flex-col gap-3 pt-3">
             <div className="flex justify-end">

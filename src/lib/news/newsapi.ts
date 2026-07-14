@@ -7,7 +7,11 @@ export type NewsArticle = {
   publishedAt: string;
 };
 
-async function fetchArticles(query: string, pageSize: number): Promise<NewsArticle[]> {
+// Exported (not just used internally) so other consumers — e.g. the
+// Company Dashboard's per-client news, keyed on a client name rather than
+// a fixed category — can run their own ad-hoc query through the same
+// NewsAPI plumbing without duplicating it.
+export async function fetchArticles(query: string, pageSize: number): Promise<NewsArticle[]> {
   const apiKey = process.env.NEWSAPI_KEY;
   if (!apiKey) return [];
 

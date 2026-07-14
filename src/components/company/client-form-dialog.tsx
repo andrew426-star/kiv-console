@@ -15,18 +15,20 @@ import { Label } from "@/components/ui/label";
 import { createClientRecord, updateClientRecord } from "@/lib/company/actions";
 import type { VariantProps } from "class-variance-authority";
 
-const STATUSES = ["prospect", "active", "paused", "completed"] as const;
+const STATUSES = ["lead", "active", "paused", "completed"] as const;
 
 export function ClientFormDialog({
   triggerLabel,
   triggerVariant = "default",
   triggerSize = "sm",
   client,
+  defaultStatus = "lead",
 }: {
   triggerLabel: string;
   triggerVariant?: VariantProps<typeof buttonVariants>["variant"];
   triggerSize?: VariantProps<typeof buttonVariants>["size"];
   client?: { id: string; name: string; status: string };
+  defaultStatus?: (typeof STATUSES)[number];
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -61,7 +63,7 @@ export function ClientFormDialog({
             <select
               id="status"
               name="status"
-              defaultValue={client?.status ?? "prospect"}
+              defaultValue={client?.status ?? defaultStatus}
               className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
             >
               {STATUSES.map((s) => (

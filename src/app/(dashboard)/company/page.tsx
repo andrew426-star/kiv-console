@@ -4,9 +4,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CommandCenter } from "@/components/company/command-center";
 import { TeamBoard } from "@/components/company/team-board";
 import { UserManagementTable } from "@/components/company/user-management-table";
+import { ClientPipeline } from "@/components/company/client-pipeline";
 import { ClientPortalBoard } from "@/components/company/client-portal-board";
-import { RecordsPanel } from "@/components/company/records-panel";
-import { NewsFeed } from "@/components/company/news-feed";
+import { ProjectTaskBoard } from "@/components/company/project-task-board";
+import { ClientNews } from "@/components/company/client-news";
 
 function SectionSkeleton({ rows = 3 }: { rows?: number }) {
   return (
@@ -45,8 +46,12 @@ export default function CompanyPage() {
         </Suspense>
       </div>
 
+      <Suspense fallback={<SectionSkeleton rows={4} />}>
+        <ClientPipeline />
+      </Suspense>
+
       <Suspense fallback={<SectionSkeleton rows={5} />}>
-        <RecordsPanel />
+        <ProjectTaskBoard />
       </Suspense>
 
       <Suspense fallback={<SectionSkeleton rows={4} />}>
@@ -54,7 +59,7 @@ export default function CompanyPage() {
       </Suspense>
 
       <Suspense fallback={<SectionSkeleton />}>
-        <NewsFeed />
+        <ClientNews />
       </Suspense>
     </div>
   );

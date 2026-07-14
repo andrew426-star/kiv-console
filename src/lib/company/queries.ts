@@ -68,11 +68,25 @@ export async function getClientPortalBoard() {
   return data ?? [];
 }
 
+// Confirmed clients only (active/paused/completed) — leads live in their
+// own column on the Client Pipeline, not mixed in here.
 export async function getClients() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clients")
-    .select("id, name, status, created_at")
+    .select("id, name, status, source, ale_doc_url, created_at")
+    .neq("status", "lead")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getLeads() {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("clients")
+    .select("id, name, status, source, ale_doc_url, created_at")
+    .eq("status", "lead")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
@@ -96,6 +110,53 @@ export async function getTasks() {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+export type ProjectBoardSnapshot = {
+  projects: Array<{ id: string; name: string; status: string; clientName: string | null }>;
+  tasks: Array<{
+    id: string;
+    title: string;
+    status: TaskStatus;
+    dueDate: string | null;
+    projectName: string | null;
+  }>;
+};
+
+// Raw project/task state for the Research brief — not archived/completed
+// projects, and any task short of done, so the brief can flag what's
+// blocked or due soon without re-deriving that from a full dump.
+export async function getProjectBoardSnapshot(): Promise<ProjectBoardSnapshot> {
+  const supabase = await createClient();
+  const [{ data: projects, error: projectsError }, { data: tasks, error: tasksError }] =
+    await Promise.all([
+      supabase
+        .from("projects")
+        .select("id, name, status, clients(name)")
+        .in("status", ["planning", "active", "blocked"]),
+      supabase
+        .from("tasks")
+        .select("id, title, status, due_date, projects(name)")
+        .neq("status", "done"),
+    ]);
+  if (projectsError) throw projectsError;
+  if (tasksError) throw tasksError;
+
+  return {
+    projects: (projects ?? []).map((p) => ({
+      id: p.id as string,
+      name: p.name as string,
+      status: p.status as string,
+      clientName: (p.clients as unknown as { name: string } | null)?.name ?? null,
+    })),
+    tasks: (tasks ?? []).map((t) => ({
+      id: t.id as string,
+      title: t.title as string,
+      status: t.status as TaskStatus,
+      dueDate: t.due_date as string | null,
+      projectName: (t.projects as unknown as { name: string } | null)?.name ?? null,
+    })),
+  };
 }
 
 export async function getFormOptions() {

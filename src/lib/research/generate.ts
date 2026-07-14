@@ -4,6 +4,7 @@ import { getCalendarState } from "@/lib/calendar/queries";
 import { getMarketQuotes, type Quote } from "@/lib/market/finnhub";
 import { getWatchlist } from "@/lib/intel/queries";
 import { getNewsFeed } from "@/lib/news/newsapi";
+import { getProjectBoardSnapshot, type ProjectBoardSnapshot } from "@/lib/company/queries";
 import { getWeatherSnapshot } from "./weather";
 
 const MOVER_THRESHOLD_PERCENT = 3;
@@ -19,13 +20,54 @@ function formatQuoteLine(q: Quote): string {
   return `${q.label} ${q.price.toFixed(2)} (${sign}${q.changePercent.toFixed(2)}%)${mover}`;
 }
 
+const DUE_SOON_DAYS = 7;
+
+function formatProjectBoard(board: ProjectBoardSnapshot): string | null {
+  const lines: string[] = [];
+
+  if (board.projects.length > 0) {
+    lines.push(
+      "Active projects:",
+      ...board.projects.map(
+        (p) => `- ${p.name}${p.clientName ? ` (${p.clientName})` : ""} — ${p.status}`,
+      ),
+    );
+  }
+
+  const blocked = board.tasks.filter((t) => t.status === "blocked");
+  if (blocked.length > 0) {
+    lines.push(
+      "Blocked tasks:",
+      ...blocked.map((t) => `- ${t.title}${t.projectName ? ` (${t.projectName})` : ""}`),
+    );
+  }
+
+  const dueSoon = board.tasks.filter((t) => {
+    if (!t.dueDate) return false;
+    const days = (new Date(t.dueDate).getTime() - Date.now()) / 86_400_000;
+    return days <= DUE_SOON_DAYS;
+  });
+  if (dueSoon.length > 0) {
+    lines.push(
+      `Tasks due within ${DUE_SOON_DAYS} days:`,
+      ...dueSoon.map(
+        (t) =>
+          `- ${t.title}${t.projectName ? ` (${t.projectName})` : ""} — due ${new Date(t.dueDate!).toLocaleDateString()}`,
+      ),
+    );
+  }
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
 async function buildPromptContext(): Promise<string> {
-  const [calendarState, watchlist, marketQuotes, news, weather] = await Promise.all([
+  const [calendarState, watchlist, marketQuotes, news, weather, projectBoard] = await Promise.all([
     getCalendarState(),
     getWatchlist().catch(() => []),
     getMarketQuotes(),
     getNewsFeed(),
     getWeatherSnapshot(),
+    getProjectBoardSnapshot().catch(() => ({ projects: [], tasks: [] })),
   ]);
 
   const sections: string[] = [`Today: ${new Date().toDateString()}`];
@@ -68,12 +110,17 @@ async function buildPromptContext(): Promise<string> {
     );
   }
 
+  const projectBoardSummary = formatProjectBoard(projectBoard);
+  if (projectBoardSummary) {
+    sections.push(`Project board:\n${projectBoardSummary}`);
+  }
+
   return sections.join("\n\n");
 }
 
-const SYSTEM_PROMPT = `You are the Research module inside K.I.V. (Kivaro Intelligence Vectoring), an internal operations console for Kivaro AI. Write a concise morning brief for the person running the company, synthesizing the calendar, market, news, and weather context you're given into a short, well-organized narrative — not a bare recap of every input.
+const SYSTEM_PROMPT = `You are the Research module inside K.I.V. (Kivaro Intelligence Vectoring), an internal operations console for Kivaro AI. Write a concise morning brief for the person running the company, synthesizing the calendar, market, news, weather, and project-board context you're given into a short, well-organized narrative — not a bare recap of every input.
 
-Call out what actually matters: schedule conflicts or a packed day, notable market moves (especially anything flagged [MOVER] or on the watchlist), and news genuinely relevant to a fintech/AI/alternative-investments company. Skip sections with nothing worth saying instead of noting their absence.
+Call out what actually matters: schedule conflicts or a packed day, notable market moves (especially anything flagged [MOVER] or on the watchlist), news genuinely relevant to a fintech/AI/alternative-investments company, and anything blocked or due soon on the project board. Skip sections with nothing worth saying instead of noting their absence.
 
 Write in plain text: no markdown headers, no asterisks, no "#". Use a blank line between sections and a leading "-" for bullet points where useful. Keep it under 300 words.`;
 

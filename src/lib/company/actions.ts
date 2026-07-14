@@ -44,7 +44,7 @@ export async function createClientRecord(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.from("clients").insert({
     name: str(formData, "name"),
-    status: str(formData, "status") ?? "prospect",
+    status: str(formData, "status") ?? "lead",
   });
   if (error) throw error;
   revalidatePath("/company");
@@ -54,7 +54,7 @@ export async function updateClientRecord(clientId: string, formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("clients")
-    .update({ name: str(formData, "name"), status: str(formData, "status") ?? "prospect" })
+    .update({ name: str(formData, "name"), status: str(formData, "status") ?? "lead" })
     .eq("id", clientId);
   if (error) throw error;
   revalidatePath("/company");
@@ -63,6 +63,30 @@ export async function updateClientRecord(clientId: string, formData: FormData) {
 export async function deleteClientRecord(clientId: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("clients").delete().eq("id", clientId);
+  if (error) throw error;
+  revalidatePath("/company");
+}
+
+// --- Client pipeline: Prospect -> Lead -> Client ----------------------------
+
+// A Prospect is a row in the real ALE Sales Pitch Log spreadsheet, not a
+// Supabase record — promoting one just means creating the first `clients`
+// row for that company, as a lead.
+export async function promoteProspectToLead(companyName: string, docUrl: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").insert({
+    name: companyName,
+    status: "lead",
+    source: "ale",
+    ale_doc_url: docUrl,
+  });
+  if (error) throw error;
+  revalidatePath("/company");
+}
+
+export async function promoteLeadToClient(clientId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("clients").update({ status: "active" }).eq("id", clientId);
   if (error) throw error;
   revalidatePath("/company");
 }
