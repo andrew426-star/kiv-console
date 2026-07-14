@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WatchlistPanel } from "@/components/intel/watchlist-panel";
-import { NewsFeed } from "@/components/company/news-feed";
+import { CategorizedNews } from "@/components/intel/categorized-news";
 
 function SectionSkeleton({ rows = 3 }: { rows?: number }) {
   return (
@@ -31,7 +31,7 @@ export default function IntelPage() {
       </Suspense>
 
       <Suspense fallback={<SectionSkeleton />}>
-        <NewsFeed />
+        <CategorizedNews />
       </Suspense>
     </div>
   );

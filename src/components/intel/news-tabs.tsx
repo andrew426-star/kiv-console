@@ -1,0 +1,50 @@
+"use client";
+
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import type { NewsArticle } from "@/lib/news/newsapi";
+
+type CategoryFeed = {
+  id: string;
+  label: string;
+  articles: NewsArticle[];
+};
+
+export function NewsTabs({ categories }: { categories: CategoryFeed[] }) {
+  return (
+    <Tabs defaultValue={categories[0]?.id}>
+      <TabsList className="h-auto flex-wrap justify-start gap-1 bg-transparent p-0">
+        {categories.map((category) => (
+          <TabsTrigger
+            key={category.id}
+            value={category.id}
+            className="flex-none grow-0 rounded-full border border-border px-3 py-1 data-active:border-kv-mint/40 data-active:bg-kv-mint/10 data-active:text-kv-mint"
+          >
+            {category.label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {categories.map((category) => (
+        <TabsContent key={category.id} value={category.id} className="flex flex-col gap-1 pt-3">
+          {category.articles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No recent results.</p>
+          ) : (
+            category.articles.map((article) => (
+              <a
+                key={article.url}
+                href={article.url}
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-col gap-0.5 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted"
+              >
+                <span className="font-medium">{article.title}</span>
+                <span className="text-xs text-muted-foreground">
+                  {article.source} · {new Date(article.publishedAt).toLocaleDateString()}
+                </span>
+              </a>
+            ))
+          )}
+        </TabsContent>
+      ))}
+    </Tabs>
+  );
+}
