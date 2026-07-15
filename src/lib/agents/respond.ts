@@ -1,8 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { generateContent, textPart, functionCallParts, type GeminiContent } from "@/lib/ai/gemini";
 import { findAgent } from "./roster";
-import { getToolsForAgent } from "./tool-definitions";
-
-const client = new Anthropic();
+import { getToolsForAgent, dispatchTool } from "./tool-definitions";
 
 function buildSystemPrompt(agentId: string): string {
   const found = findAgent(agentId);
@@ -20,26 +18,48 @@ You're replying inside Slack, so:
 - If someone asks about something you don't have a real tool or data source for, say so plainly rather than inventing an answer. You are a real, currently-limited agent — not a demo pretending to have capabilities you don't.`;
 }
 
+const MAX_ITERATIONS = 4;
+
 export async function generateAgentReply(agentId: string, incomingText: string): Promise<string> {
   const found = findAgent(agentId);
   if (!found) throw new Error(`Unknown agentId: ${agentId}`);
 
-  const runner = client.beta.messages.toolRunner({
-    model: found.agent.model,
-    max_tokens: 1024,
-    max_iterations: 4,
-    system: buildSystemPrompt(agentId),
-    tools: getToolsForAgent(agentId),
-    messages: [{ role: "user", content: incomingText }],
-  });
+  const tools = getToolsForAgent(agentId);
+  const contents: GeminiContent[] = [{ role: "user", parts: [{ text: incomingText }] }];
 
-  const finalMessage = await runner.runUntilDone();
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const { parts, finishReason } = await generateContent({
+      systemInstruction: buildSystemPrompt(agentId),
+      contents,
+      tools: tools.length > 0 ? tools : undefined,
+      maxOutputTokens: 1024,
+    });
 
-  if (finalMessage.stop_reason === "refusal") {
-    throw new Error("Claude declined to respond to this message");
+    if (finishReason === "SAFETY" || finishReason === "RECITATION") {
+      throw new Error("Gemini declined to respond to this message");
+    }
+
+    const calls = functionCallParts(parts);
+    if (calls.length === 0) {
+      const text = textPart(parts);
+      if (!text) throw new Error("Gemini returned no text content");
+      return text;
+    }
+
+    // Append the model's own function-call turn, then execute each tool
+    // and feed the results back as the next turn.
+    contents.push({ role: "model", parts: calls });
+
+    const responseParts = await Promise.all(
+      calls.map(async (call) => ({
+        functionResponse: {
+          name: call.functionCall.name,
+          response: { result: await dispatchTool(call.functionCall.name, call.functionCall.args) },
+        },
+      })),
+    );
+    contents.push({ role: "user", parts: responseParts });
   }
 
-  const text = finalMessage.content.find((block) => block.type === "text")?.text;
-  if (!text) throw new Error("Claude returned no text content");
-  return text;
+  throw new Error("Agent hit max tool-call iterations without a final reply");
 }

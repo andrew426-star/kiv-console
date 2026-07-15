@@ -99,7 +99,7 @@ export async function POST(
     const threadTs = event.thread_ts;
 
     // Slack requires a 200 within ~3s or it retries delivery; a tool-using
-    // Claude call routinely takes longer than that. Ack now, do the real
+    // Gemini call routinely takes longer than that. Ack now, do the real
     // work after the response is sent.
     after(async () => {
       try {

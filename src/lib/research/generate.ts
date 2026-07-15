@@ -1,5 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
+import { generateContent, textPart } from "@/lib/ai/gemini";
 import { getCalendarState } from "@/lib/calendar/queries";
 import { getMarketQuotes, type Quote } from "@/lib/market/finnhub";
 import { getWatchlist } from "@/lib/intel/queries";
@@ -127,29 +127,25 @@ Write in plain text: no markdown headers, no asterisks, no "#". Use a blank line
 export async function generateBrief(): Promise<Brief> {
   const context = await buildPromptContext();
 
-  const client = new Anthropic();
-  const response = await client.messages.create({
-    model: "claude-opus-4-8",
-    max_tokens: 1024,
-    thinking: { type: "adaptive" },
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: context }],
+  const { parts, finishReason } = await generateContent({
+    systemInstruction: SYSTEM_PROMPT,
+    contents: [{ role: "user", parts: [{ text: context }] }],
+    maxOutputTokens: 1024,
   });
 
-  if (response.stop_reason === "refusal") {
-    throw new Error("Claude declined to generate a brief for this context");
+  if (finishReason === "SAFETY" || finishReason === "RECITATION") {
+    throw new Error("Gemini declined to generate a brief for this context");
   }
-
-  const content = response.content.find((block) => block.type === "text")?.text;
-  if (!content) throw new Error("Claude returned no text content");
+  const content = textPart(parts);
+  if (!content) throw new Error("Gemini returned no text content");
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  const { data: row, error } = await supabase
     .from("research_briefs")
     .insert({ content })
     .select("content, generated_at")
     .single();
   if (error) throw new Error(error.message);
 
-  return { content: data.content as string, generatedAt: data.generated_at as string };
+  return { content: row.content as string, generatedAt: row.generated_at as string };
 }
