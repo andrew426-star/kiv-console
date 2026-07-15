@@ -7,6 +7,7 @@ import { CalendarSnapshot } from "@/components/overview/calendar-snapshot";
 import { MarketSnapshot } from "@/components/overview/market-snapshot";
 import { ResearchSnapshot } from "@/components/overview/research-snapshot";
 import { AutonomySnapshot } from "@/components/overview/autonomy-snapshot";
+import { InboxSnapshot } from "@/components/overview/inbox-snapshot";
 import { PlaceholderCard } from "@/components/overview/placeholder-card";
 
 function SectionSkeleton({ rows = 3 }: { rows?: number }) {
@@ -60,10 +61,9 @@ export default function Home() {
         <Suspense fallback={<SectionSkeleton />}>
           <AutonomySnapshot />
         </Suspense>
-        <PlaceholderCard
-          title="Inbox"
-          description="A Gmail preview will land here once that integration is built."
-        />
+        <Suspense fallback={<SectionSkeleton />}>
+          <InboxSnapshot />
+        </Suspense>
       </div>
     </div>
   );

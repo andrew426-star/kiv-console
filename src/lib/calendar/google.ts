@@ -19,12 +19,16 @@ const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 // - webmasters.readonly: Canvas's Search Console tool (kivaroai.com
 //   performance) — read-only, matches "tracking," not managing the
 //   property.
+// - gmail.metadata: the Overview page's Inbox preview — headers/subject/
+//   sender/snippet/labels only, never message bodies. Deliberately not
+//   gmail.readonly (full body access), since a preview never needs that.
 const CALENDAR_SCOPE = [
   "https://www.googleapis.com/auth/calendar.readonly",
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/spreadsheets",
   "https://www.googleapis.com/auth/documents",
   "https://www.googleapis.com/auth/drive",
+  "https://www.googleapis.com/auth/gmail.metadata",
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/webmasters.readonly",
 ].join(" ");
