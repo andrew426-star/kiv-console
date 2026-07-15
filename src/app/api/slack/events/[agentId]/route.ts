@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { getSlackCredentials } from "@/lib/slack/credentials";
 import { verifySlackSignature } from "@/lib/slack/verify";
 import { postSlackMessage } from "@/lib/slack/web-api";
+import { buildThreadHistory } from "@/lib/slack/thread-history";
 import { generateAgentReply } from "@/lib/agents/respond";
 import { logAgentActivity } from "@/lib/agents/log";
 import { findAgent } from "@/lib/agents/roster";
@@ -103,7 +104,20 @@ export async function POST(
     // work after the response is sent.
     after(async () => {
       try {
-        const reply = await generateAgentReply(agentId, text);
+        // Only a reply within an *existing* thread has history to fetch —
+        // a fresh mention (no thread_ts) starts a genuinely new
+        // conversation. A history-fetch failure shouldn't block the reply
+        // itself; it just falls back to no memory for this one turn.
+        const history = threadTs
+          ? await buildThreadHistory(credentials.botToken, channel, threadTs, event.ts ?? "").catch(
+              (err) => {
+                console.error(`Failed to fetch thread history for ${agentId}`, err);
+                return [];
+              },
+            )
+          : [];
+
+        const reply = await generateAgentReply(agentId, text, history);
         await postSlackMessage(credentials.botToken, { channel, text: reply, threadTs });
         await logAgentActivity({
           agentId,

@@ -101,13 +101,20 @@ export async function generateContent(params: {
 // each one via `dispatch` and feeding the result back as the next turn.
 export async function generateWithToolLoop(params: {
   systemInstruction?: string;
+  // Prior conversation turns (e.g. a Slack thread's earlier messages),
+  // prepended before initialPrompt so the model has real memory of what
+  // was already said instead of treating every call as a fresh start.
+  history?: GeminiContent[];
   initialPrompt: string;
   tools?: GeminiTool[];
   dispatch: (name: string, args: Record<string, unknown>) => Promise<unknown>;
   maxOutputTokens?: number;
   maxIterations?: number;
 }): Promise<string> {
-  const contents: GeminiContent[] = [{ role: "user", parts: [{ text: params.initialPrompt }] }];
+  const contents: GeminiContent[] = [
+    ...(params.history ?? []),
+    { role: "user", parts: [{ text: params.initialPrompt }] },
+  ];
   const maxIterations = params.maxIterations ?? 6;
 
   for (let i = 0; i < maxIterations; i++) {
