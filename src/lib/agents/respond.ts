@@ -1,6 +1,7 @@
 import { generateWithToolLoop, type GeminiContent } from "@/lib/ai/gemini";
 import { findAgent } from "./roster";
 import { getToolsForAgent, dispatchTool } from "./tool-definitions";
+import { KIVARO_BRAND_PALETTE, CREATIVE_BRAND_AGENTS } from "./brand-palette";
 
 const READ_ONLY_ADVISORY_AGENTS = new Set(["ledger", "ticker", "oracle"]);
 
@@ -18,9 +19,11 @@ function buildSystemPrompt(agentId: string): string {
       ? `\n\nYou plan, design, and advise on workflows/agents/features — for K.I.V. itself and for client-facing showcase builds — working alongside Andrew and Claude in real development sessions, the same way a second developer would. Your one real, concrete action is opening a GitHub issue in the kiv-console repo to formally propose and track something to build. You do not write, commit, or deploy code yourself — say so plainly if asked to.`
       : "";
 
+  const brandNote = CREATIVE_BRAND_AGENTS.has(agentId) ? `\n\n${KIVARO_BRAND_PALETTE}` : "";
+
   return `You are ${agent.name}, the ${agent.role} on Kivaro AI's ${division.label} division.
 
-${agent.description}${readOnlyNote}${forgeNote}
+${agent.description}${readOnlyNote}${forgeNote}${brandNote}
 
 You're replying inside Slack, so:
 - Use Slack's mrkdwn, not standard markdown: *bold* (single asterisk), _italic_, \`code\`, and <https://url|link text> for links. Never use "**bold**" or "[text](url)".
