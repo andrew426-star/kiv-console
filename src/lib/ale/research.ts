@@ -38,22 +38,32 @@ type ResearchOutput = {
   contacts: Array<{ name: string; instagram: string | null; facebook: string | null }>;
 };
 
+// A lead can have 10+ Hunter contacts — searching every single one's
+// socials in the same tool loop that also needs to land the business
+// overview/AUM risks never converging within the iteration cap (this
+// really happened: a 10-contact company burned its whole budget on social
+// lookups and never reached the final JSON). Capped to the first few.
+const MAX_CONTACTS_FOR_SOCIAL_LOOKUP = 3;
+
 async function researchWithGemini(
   companyName: string,
   website: string,
   contacts: ContactInput[],
 ): Promise<ResearchOutput> {
+  const lookupContacts = contacts.slice(0, MAX_CONTACTS_FOR_SOCIAL_LOOKUP);
   const contactList =
-    contacts.map((c) => `- ${c.name} (${c.title || "unknown title"})`).join("\n") ||
+    lookupContacts.map((c) => `- ${c.name} (${c.title || "unknown title"})`).join("\n") ||
     "(no known contacts)";
 
   const prompt = `Research the company "${companyName}" (${website}) for Kivaro AI's lead pipeline.
+
+You have a limited number of searches. Budget them as: 1-2 for the business overview/AUM below, then at most one search per contact listed. Once you've used your searches (or found what you need sooner), stop searching and respond with the JSON — an incomplete field (empty string or null) is fine, but never keep searching indefinitely.
 
 1. Write a business overview covering their strategy, capital, and scale — 2-4 sentences, based on real information you find. If you can't find enough to say something substantive, say so plainly rather than inventing detail.
 
 2. If you can find a real assets-under-management (or comparable scale) figure, report it (e.g. "$1.4B"). Otherwise use an empty string — do not estimate or guess.
 
-3. For each contact below, try to find their Instagram and Facebook profiles via web search. Only include a handle/URL if you find one with reasonable confidence it's the same person — otherwise use null. Do not guess.
+3. For each contact below (and only these — do not look up others), try to find their Instagram and Facebook profiles via web search. Only include a handle/URL if you find one with reasonable confidence it's the same person — otherwise use null. Do not guess.
 
 Contacts:
 ${contactList}
@@ -69,6 +79,7 @@ Use the web_search tool for anything you state as fact. Respond with ONLY a JSON
       return dispatchWebSearch(args);
     },
     maxOutputTokens: 8000,
+    maxIterations: 8,
   });
 
   const jsonMatch = text.match(/\{[\s\S]*\}/);

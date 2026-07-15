@@ -133,13 +133,27 @@ export async function generateWithToolLoop(params: {
     }
 
     contents.push({ role: "model", parts: calls });
+    // A single bad tool call (Gemini omitting a required arg, a flaky
+    // upstream API) used to throw straight out of this loop and crash the
+    // whole research/pitch/reply call. Feed the error back to Gemini as
+    // the tool's result instead — same as a real tool-use agent would
+    // handle a failed call — so it can retry with a fix, use partial
+    // results from other calls in the same turn, or give a best-effort
+    // answer instead of losing everything to one hiccup.
     const responseParts = await Promise.all(
-      calls.map(async (call) => ({
-        functionResponse: {
-          name: call.functionCall.name,
-          response: { result: await params.dispatch(call.functionCall.name, call.functionCall.args) },
-        },
-      })),
+      calls.map(async (call) => {
+        try {
+          const result = await params.dispatch(call.functionCall.name, call.functionCall.args);
+          return { functionResponse: { name: call.functionCall.name, response: { result } } };
+        } catch (err) {
+          return {
+            functionResponse: {
+              name: call.functionCall.name,
+              response: { error: err instanceof Error ? err.message : String(err) },
+            },
+          };
+        }
+      }),
     );
     contents.push({ role: "user", parts: responseParts });
   }

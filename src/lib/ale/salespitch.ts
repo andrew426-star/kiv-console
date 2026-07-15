@@ -61,6 +61,8 @@ async function generatePitchContent(
 
 Known business overview: ${businessOverview}
 
+You have a limited number of searches (at most 5-6 total across everything below) — once you've used them, or found what you need sooner, stop searching and write the final JSON. An incomplete or best-effort field beats never finishing.
+
 Do the following, using web search for anything you state as fact:
 
 1. Company History: a short history of the company, its key achievements, and a "hook" — an attention-grabbing opening line referencing something specific and real about them.
