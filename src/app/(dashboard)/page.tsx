@@ -6,6 +6,7 @@ import { NewsFeed } from "@/components/company/news-feed";
 import { CalendarSnapshot } from "@/components/overview/calendar-snapshot";
 import { MarketSnapshot } from "@/components/overview/market-snapshot";
 import { ResearchSnapshot } from "@/components/overview/research-snapshot";
+import { AutonomySnapshot } from "@/components/overview/autonomy-snapshot";
 import { PlaceholderCard } from "@/components/overview/placeholder-card";
 
 function SectionSkeleton({ rows = 3 }: { rows?: number }) {
@@ -56,11 +57,9 @@ export default function Home() {
           description="Ultron will monitor Kivaro's own infrastructure — Railway, Vercel, Supabase, GitHub — here once it's built."
           href="/security"
         />
-        <PlaceholderCard
-          title="Autonomy"
-          description="The Autonomous Lead Engine's pipeline activity will surface here once it's built."
-          href="/autonomy"
-        />
+        <Suspense fallback={<SectionSkeleton />}>
+          <AutonomySnapshot />
+        </Suspense>
         <PlaceholderCard
           title="Inbox"
           description="A Gmail preview will land here once that integration is built."
