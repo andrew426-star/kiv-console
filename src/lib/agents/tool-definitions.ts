@@ -1,16 +1,20 @@
 import type { GeminiFunctionDeclaration, GeminiTool } from "@/lib/ai/gemini";
 import { getMarketQuotes, getQuotesFor } from "@/lib/market/finnhub";
 import { getNewsFeed } from "@/lib/news/newsapi";
+import { getStripeFinancials } from "@/lib/portfolio/stripe";
+import { getAlpacaPortfolio } from "@/lib/portfolio/alpaca";
 import { webSearch } from "./tools/web-search";
 import { getWatchlistForAgent } from "./tools/watchlist";
 import { getCalendarEventsForAgent } from "./tools/calendar";
 import { getCompanyStatsForAgent } from "./tools/company-stats";
+import { searchCompanyDriveForAgent } from "./tools/company-drive";
+import { getIntegrationsStatus } from "./tools/integrations";
 
 // A custom function tool backed by Tavily (see tools/web-search.ts), not
 // Gemini's built-in googleSearch grounding — that requires billing enabled
 // even on an otherwise-free project. Being a regular function declaration
-// (not a built-in tool) also means it can be freely combined with other
-// custom tools in the same request, unlike googleSearch.
+// (not a built-in tool) also means it can be freely combined with any other
+// custom tool in the same request, unlike googleSearch.
 const WEB_SEARCH_DECL: GeminiFunctionDeclaration = {
   name: "web_search",
   description:
@@ -67,6 +71,40 @@ const COMPANY_STATS_DECL: GeminiFunctionDeclaration = {
   parameters: { type: "OBJECT", properties: {} },
 };
 
+const STRIPE_FINANCIALS_DECL: GeminiFunctionDeclaration = {
+  name: "get_stripe_financials",
+  description:
+    "Get Kivaro AI's live Stripe balance (available/pending) and recent account activity. Read-only — there is no capability to issue charges, refunds, or payouts.",
+  parameters: { type: "OBJECT", properties: {} },
+};
+
+const ALPACA_PORTFOLIO_DECL: GeminiFunctionDeclaration = {
+  name: "get_alpaca_portfolio",
+  description:
+    "Get Kivaro's investment account: equity, cash, buying power, and open positions with unrealized P/L. Read-only — there is no capability to place trades.",
+  parameters: { type: "OBJECT", properties: {} },
+};
+
+const COMPANY_DRIVE_DECL: GeminiFunctionDeclaration = {
+  name: "search_company_drive",
+  description:
+    "Search Kivaro's Google Drive (Docs, Sheets, and other files) by keyword. Read-only — returns matching file names and links, does not read file contents.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      query: { type: "STRING", description: "Keywords to search for." },
+    },
+    required: ["query"],
+  },
+};
+
+const INTEGRATIONS_STATUS_DECL: GeminiFunctionDeclaration = {
+  name: "get_integrations_status",
+  description:
+    "List every external integration/service Kivaro AI has, and whether each is actually configured right now. Use this for any question about what tools, data sources, AI models, or integrations Kivaro uses in-house.",
+  parameters: { type: "OBJECT", properties: {} },
+};
+
 // name -> handler, used by the agent loop (src/lib/agents/respond.ts) once
 // Gemini requests a function call by name.
 const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
@@ -81,6 +119,10 @@ const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknow
   get_watchlist: async () => getWatchlistForAgent(),
   get_calendar_events: async () => getCalendarEventsForAgent(),
   get_company_stats: async () => getCompanyStatsForAgent(),
+  get_stripe_financials: async () => getStripeFinancials(),
+  get_alpaca_portfolio: async () => getAlpacaPortfolio(),
+  search_company_drive: async (args) => searchCompanyDriveForAgent(String(args.query ?? "")),
+  get_integrations_status: async () => getIntegrationsStatus(),
 };
 
 export async function dispatchTool(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -89,30 +131,47 @@ export async function dispatchTool(name: string, args: Record<string, unknown>):
   return handler(args);
 }
 
-// Per-agent tool matrix — see the approved plan for the reasoning behind
-// each assignment. Agents not listed here get no tools: their described
-// role has no real backing data source in K.I.V. yet (ALE, social media,
-// personal brand, documents, contracts), so v1 gives them none rather than
-// fake ones.
+// Every agent gets integrations transparency per Andrew: "complete
+// transparency and awareness of all integrations involving Kivaro AI."
+const BASE_TOOLS: GeminiFunctionDeclaration[] = [INTEGRATIONS_STATUS_DECL];
+
+// Per-agent tool matrix, on top of BASE_TOOLS — see the approved plan for
+// the reasoning behind each assignment. Agents not listed here get no
+// extra tools: their described role has no real backing data source in
+// K.I.V. yet (social media, personal brand, contracts, code/infra
+// execution), so v1 gives them none rather than fake ones.
 export function getToolsForAgent(agentId: string): GeminiTool[] {
-  switch (agentId) {
-    case "atlas":
-    case "meridian":
-    case "cipher":
-      return [{ functionDeclarations: [WEB_SEARCH_DECL, NEWS_FEED_DECL] }];
-    case "oracle":
-      return [{ functionDeclarations: [MARKET_QUOTES_DECL, WATCHLIST_DECL, NEWS_FEED_DECL] }];
-    case "forge":
-    case "blueprint":
-    case "broadcast":
-      return [{ functionDeclarations: [WEB_SEARCH_DECL] }];
-    case "ledger":
-      return [{ functionDeclarations: [COMPANY_STATS_DECL] }];
-    case "ticker":
-      return [{ functionDeclarations: [MARKET_QUOTES_DECL, WATCHLIST_DECL] }];
-    case "chronicle":
-      return [{ functionDeclarations: [CALENDAR_DECL, COMPANY_STATS_DECL] }];
-    default:
-      return [];
-  }
+  const specific: GeminiFunctionDeclaration[] = (() => {
+    switch (agentId) {
+      case "atlas":
+      case "meridian":
+      case "cipher":
+        return [WEB_SEARCH_DECL, NEWS_FEED_DECL];
+      case "oracle":
+        return [
+          MARKET_QUOTES_DECL,
+          WATCHLIST_DECL,
+          NEWS_FEED_DECL,
+          STRIPE_FINANCIALS_DECL,
+          ALPACA_PORTFOLIO_DECL,
+        ];
+      case "forge":
+      case "blueprint":
+      case "broadcast":
+        return [WEB_SEARCH_DECL];
+      case "ledger":
+        return [COMPANY_STATS_DECL, STRIPE_FINANCIALS_DECL];
+      case "ticker":
+        return [MARKET_QUOTES_DECL, WATCHLIST_DECL, ALPACA_PORTFOLIO_DECL];
+      case "chronicle":
+        return [CALENDAR_DECL, COMPANY_STATS_DECL, COMPANY_DRIVE_DECL];
+      case "nexus":
+      case "accord":
+        return [COMPANY_DRIVE_DECL];
+      default:
+        return [];
+    }
+  })();
+
+  return [{ functionDeclarations: [...BASE_TOOLS, ...specific] }];
 }

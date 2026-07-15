@@ -45,3 +45,40 @@ export async function deleteFile(accessToken: string, fileId: string): Promise<v
   });
   if (!res.ok) throw new Error(`Drive delete failed: ${await res.text()}`);
 }
+
+export type DriveSearchResult = {
+  id: string;
+  name: string;
+  mimeType: string;
+  webViewLink: string | null;
+  modifiedTime: string | null;
+};
+
+// Read-only full-text search across the connected account's Drive — used by
+// the Business Processes & Taxonomy agents (Nexus/Accord/Chronicle) to find
+// company documents, not to read or modify their contents.
+export async function searchFiles(accessToken: string, query: string): Promise<DriveSearchResult[]> {
+  const escaped = query.replace(/'/g, "\\'");
+  const q = `fullText contains '${escaped}' and trashed = false`;
+  const res = await fetch(
+    `${DRIVE_BASE}/files?q=${encodeURIComponent(q)}&fields=files(id,name,mimeType,webViewLink,modifiedTime)&pageSize=10`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) throw new Error(`Drive search failed: ${await res.text()}`);
+  const data = (await res.json()) as {
+    files?: Array<{
+      id: string;
+      name: string;
+      mimeType: string;
+      webViewLink?: string;
+      modifiedTime?: string;
+    }>;
+  };
+  return (data.files ?? []).map((f) => ({
+    id: f.id,
+    name: f.name,
+    mimeType: f.mimeType,
+    webViewLink: f.webViewLink ?? null,
+    modifiedTime: f.modifiedTime ?? null,
+  }));
+}

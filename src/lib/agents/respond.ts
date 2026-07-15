@@ -2,14 +2,20 @@ import { generateContent, textPart, functionCallParts, type GeminiContent } from
 import { findAgent } from "./roster";
 import { getToolsForAgent, dispatchTool } from "./tool-definitions";
 
+const READ_ONLY_ADVISORY_AGENTS = new Set(["ledger", "ticker", "oracle"]);
+
 function buildSystemPrompt(agentId: string): string {
   const found = findAgent(agentId);
   if (!found) throw new Error(`Unknown agentId: ${agentId}`);
   const { agent, division } = found;
 
+  const readOnlyNote = READ_ONLY_ADVISORY_AGENTS.has(agentId)
+    ? `\n\nYour access to Stripe and/or Alpaca data is strictly read-only, view-and-advise — there is no tool that can execute a charge, refund, payout, trade, or transfer. If asked to actually do one of those, say plainly that you can only view and advise, not execute.`
+    : "";
+
   return `You are ${agent.name}, the ${agent.role} on Kivaro AI's ${division.label} division.
 
-${agent.description}
+${agent.description}${readOnlyNote}
 
 You're replying inside Slack, so:
 - Use Slack's mrkdwn, not standard markdown: *bold* (single asterisk), _italic_, \`code\`, and <https://url|link text> for links. Never use "**bold**" or "[text](url)".
