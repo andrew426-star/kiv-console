@@ -16,6 +16,9 @@ const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 //   Docs into it — drive.file only sees files the app itself created.
 // - gmail.send: the ALE daily-run completion email. Send-only, no inbox
 //   read access.
+// - webmasters.readonly: Canvas's Search Console tool (kivaroai.com
+//   performance) — read-only, matches "tracking," not managing the
+//   property.
 const CALENDAR_SCOPE = [
   "https://www.googleapis.com/auth/calendar.readonly",
   "https://www.googleapis.com/auth/userinfo.email",
@@ -23,6 +26,7 @@ const CALENDAR_SCOPE = [
   "https://www.googleapis.com/auth/documents",
   "https://www.googleapis.com/auth/drive",
   "https://www.googleapis.com/auth/gmail.send",
+  "https://www.googleapis.com/auth/webmasters.readonly",
 ].join(" ");
 
 export function buildGoogleAuthUrl(redirectUri: string, state: string) {

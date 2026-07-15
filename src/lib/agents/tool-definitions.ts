@@ -11,6 +11,7 @@ import { searchCompanyDriveForAgent } from "./tools/company-drive";
 import { getIntegrationsStatus } from "./tools/integrations";
 import { generateShowcaseForAgent } from "./tools/showcase";
 import { createGithubIssue } from "./tools/github";
+import { getSearchConsoleStatsForAgent } from "./tools/search-console";
 
 const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   name: "get_news_feed",
@@ -122,6 +123,13 @@ const CREATE_GITHUB_ISSUE_DECL: GeminiFunctionDeclaration = {
   },
 };
 
+const SEARCH_CONSOLE_DECL: GeminiFunctionDeclaration = {
+  name: "get_search_console_stats",
+  description:
+    "Get kivaroai.com's real Google Search Console performance over the last ~28 days: top search queries and top pages by clicks, impressions, and average position. Read-only.",
+  parameters: { type: "OBJECT", properties: {} },
+};
+
 // name -> handler, used by the agent loop (src/lib/agents/respond.ts) once
 // Gemini requests a function call by name.
 const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
@@ -143,6 +151,7 @@ const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknow
   generate_showcase: async (args) => generateShowcaseForAgent(String(args.companyName ?? "")),
   create_github_issue: async (args) =>
     createGithubIssue(String(args.title ?? ""), String(args.body ?? "")),
+  get_search_console_stats: async () => getSearchConsoleStatsForAgent(),
 };
 
 export async function dispatchTool(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -190,6 +199,8 @@ export function getToolsForAgent(agentId: string): GeminiTool[] {
       case "nexus":
       case "accord":
         return [COMPANY_DRIVE_DECL];
+      case "canvas":
+        return [SEARCH_CONSOLE_DECL];
       default:
         return [];
     }
