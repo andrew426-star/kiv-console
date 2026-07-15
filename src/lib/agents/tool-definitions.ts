@@ -9,6 +9,8 @@ import { getCalendarEventsForAgent } from "./tools/calendar";
 import { getCompanyStatsForAgent } from "./tools/company-stats";
 import { searchCompanyDriveForAgent } from "./tools/company-drive";
 import { getIntegrationsStatus } from "./tools/integrations";
+import { generateShowcaseForAgent } from "./tools/showcase";
+import { createGithubIssue } from "./tools/github";
 
 // A custom function tool backed by Tavily (see tools/web-search.ts), not
 // Gemini's built-in googleSearch grounding — that requires billing enabled
@@ -105,6 +107,39 @@ const INTEGRATIONS_STATUS_DECL: GeminiFunctionDeclaration = {
   parameters: { type: "OBJECT", properties: {} },
 };
 
+const GENERATE_SHOWCASE_DECL: GeminiFunctionDeclaration = {
+  name: "generate_showcase",
+  description:
+    "Generate (or regenerate) a mock client showcase script — a presentation-ready, step-by-step walkthrough for a live sales call or audit — built from an existing ALE sales pitch's Demo Setup. Requires that company already have a sales pitch on file.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      companyName: {
+        type: "STRING",
+        description: "The exact company name as it appears in the ALE Sales Pitch Log.",
+      },
+    },
+    required: ["companyName"],
+  },
+};
+
+const CREATE_GITHUB_ISSUE_DECL: GeminiFunctionDeclaration = {
+  name: "create_github_issue",
+  description:
+    "Open a real GitHub issue in the kiv-console repo proposing a workflow, feature, fix, or client showcase build. This tracks the proposal as a real, actionable item for Andrew (or Claude, in a real dev session) to actually implement — it does not write or deploy any code itself.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      title: { type: "STRING", description: "A short, clear issue title." },
+      body: {
+        type: "STRING",
+        description: "The full proposal: what to build, why, and a rough plan.",
+      },
+    },
+    required: ["title", "body"],
+  },
+};
+
 // name -> handler, used by the agent loop (src/lib/agents/respond.ts) once
 // Gemini requests a function call by name.
 const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
@@ -123,6 +158,9 @@ const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknow
   get_alpaca_portfolio: async () => getAlpacaPortfolio(),
   search_company_drive: async (args) => searchCompanyDriveForAgent(String(args.query ?? "")),
   get_integrations_status: async () => getIntegrationsStatus(),
+  generate_showcase: async (args) => generateShowcaseForAgent(String(args.companyName ?? "")),
+  create_github_issue: async (args) =>
+    createGithubIssue(String(args.title ?? ""), String(args.body ?? "")),
 };
 
 export async function dispatchTool(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -155,8 +193,10 @@ export function getToolsForAgent(agentId: string): GeminiTool[] {
           STRIPE_FINANCIALS_DECL,
           ALPACA_PORTFOLIO_DECL,
         ];
-      case "forge":
       case "blueprint":
+        return [WEB_SEARCH_DECL, GENERATE_SHOWCASE_DECL];
+      case "forge":
+        return [WEB_SEARCH_DECL, CREATE_GITHUB_ISSUE_DECL];
       case "broadcast":
         return [WEB_SEARCH_DECL];
       case "ledger":

@@ -3,6 +3,7 @@ import { getWorkspaceAccessToken } from "@/lib/google/access-token";
 import { ensureTabExists, appendRows, getRows } from "@/lib/google/sheets";
 import { findFolderIdByName, moveFileToFolder } from "@/lib/google/drive";
 import { createDoc } from "@/lib/google/docs";
+import { generateShowcase } from "./showcase";
 import {
   GLE_SPREADSHEET_ID,
   WEBSITES_TAB,
@@ -216,6 +217,17 @@ export async function generateSalesPitch(placeId: string): Promise<SalesPitchRes
   }
   const docUrl = `https://docs.google.com/document/d/${docId}/edit`;
 
+  // Blueprint fires here automatically — a mock showcase for sales calls/
+  // audits, built from this same pitch's Demo Setup. A showcase failure
+  // shouldn't fail the sales pitch itself (that's the more important
+  // artifact), so this is caught and logged as a missing URL, not thrown.
+  const showcaseUrl = await generateShowcase(accessToken, name, pitch.demoSetup)
+    .then((r) => r.docUrl)
+    .catch((err) => {
+      console.error(`Showcase generation failed for "${name}"`, err);
+      return "";
+    });
+
   await appendRows(accessToken, SALES_PITCH_LOG_SPREADSHEET_ID, SALES_PITCH_LOG_TAB, [
     [
       name,
@@ -225,6 +237,7 @@ export async function generateSalesPitch(placeId: string): Promise<SalesPitchRes
       pitch.followUpCallVariation,
       pitch.demoSetup,
       new Date().toISOString(),
+      showcaseUrl,
     ],
   ]);
 

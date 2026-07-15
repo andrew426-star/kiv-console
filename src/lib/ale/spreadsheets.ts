@@ -5,6 +5,7 @@ export const GLE_SPREADSHEET_ID = "1GBg4tiEVJqwQdW9zxIlnVNhln7qkcuwz8z3oSoGxKo0"
 export const ALE_SPREADSHEET_ID = "1iiBVFIV3qvSyqlHxGBdCRx3DlEgFKmi9P20INXmmYKs";
 export const SALES_PITCH_LOG_SPREADSHEET_ID = "1YEAJ0AQpaYgK7FTGXj-qRpQWNjjgVRZkUVxsqrrQCZg";
 export const SALES_PITCH_DRIVE_FOLDER_NAME = "Sales Pitches: Investment Institutions";
+export const SHOWCASE_DRIVE_FOLDER_NAME = "Client Showcases";
 
 // Stage 1 — Geolocation Lead Engine (GLE spreadsheet)
 export const MAPS_DATA_TAB = "Maps Data";
@@ -118,6 +119,9 @@ export const NEW_ERA_HEADER = [
 // the same Company-Name-keyed convention as everything else in these
 // spreadsheets.
 export const SALES_PITCH_LOG_TAB = "ALE Sales Pitch Log";
+// "Showcase Doc URL" appended at the end (not inserted before "Generated
+// At") so existing rows just show a blank there rather than shifting every
+// column after it — same lesson as the earlier Demo Setup header fix.
 export const SALES_PITCH_LOG_HEADER = [
   "Company",
   "Doc URL",
@@ -126,4 +130,5 @@ export const SALES_PITCH_LOG_HEADER = [
   "Follow-Up Call Variation",
   "Demo Setup",
   "Generated At",
+  "Showcase Doc URL",
 ];
