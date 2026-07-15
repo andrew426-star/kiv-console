@@ -1,8 +1,9 @@
-import { getNewsFeed } from "@/lib/news/newsapi";
+import { getNewsFeed, isNewsApiConfigured } from "@/lib/news/newsapi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export async function NewsFeed() {
   const articles = await getNewsFeed();
+  const configured = isNewsApiConfigured();
 
   return (
     <Card className="glow-border-hover">
@@ -12,7 +13,9 @@ export async function NewsFeed() {
       <CardContent className="flex flex-col gap-1">
         {articles.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Not connected — set NEWSAPI_KEY to pull a live feed here.
+            {configured
+              ? "No articles right now — NewsAPI's free tier rate-limits at 100 requests/day, so this can go quiet temporarily. It'll resume on its own."
+              : "Not connected — set NEWSAPI_KEY to pull a live feed here."}
           </p>
         ) : (
           articles.map((article) => (

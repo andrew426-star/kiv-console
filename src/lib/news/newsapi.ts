@@ -7,6 +7,14 @@ export type NewsArticle = {
   publishedAt: string;
 };
 
+// Distinguishes "NEWSAPI_KEY genuinely unset" from "configured but a fetch
+// came back empty" (e.g. NewsAPI's free tier rate limit: 100 req/24h) —
+// the two used to look identical to the UI, which showed "Not connected"
+// even with a valid key just because a call happened to fail.
+export function isNewsApiConfigured(): boolean {
+  return Boolean(process.env.NEWSAPI_KEY);
+}
+
 // Exported (not just used internally) so other consumers — e.g. the
 // Company Dashboard's per-client news, keyed on a client name rather than
 // a fixed category — can run their own ad-hoc query through the same
@@ -38,6 +46,15 @@ export async function fetchArticles(query: string, pageSize: number): Promise<Ne
   }));
 }
 
+// NewsAPI's free Developer plan caps out at 100 requests/24h (50 per 12h)
+// — shared across every consumer of these cached functions, not per-page.
+// With 7 fixed query slots (this one + the 6 Intel Hub categories below)
+// plus one per active client, "minutes"-lifetime caching burned through the
+// whole daily quota fast (confirmed: a live call returned NewsAPI's
+// rateLimited error). ~4hr revalidate keeps every slot's daily request
+// count low and predictable regardless of how many pages/agents hit it.
+export const NEWS_CACHE_LIFE = { stale: 3600, revalidate: 14400, expire: 86400 } as const;
+
 const QUERY = "hedge fund OR fintech OR AI automation OR alternative investment";
 
 // General-purpose single feed — used by the Overview/Company pages, agent
@@ -45,7 +62,7 @@ const QUERY = "hedge fund OR fintech OR AI automation OR alternative investment"
 // per-category feeds below, which those consumers don't need.
 export async function getNewsFeed(): Promise<NewsArticle[]> {
   "use cache";
-  cacheLife("minutes");
+  cacheLife(NEWS_CACHE_LIFE);
   cacheTag("news-feed");
   return fetchArticles(QUERY, 8);
 }
@@ -71,7 +88,7 @@ export type NewsCategoryId = (typeof NEWS_CATEGORIES)[number]["id"];
 
 export async function getNewsByCategory(categoryId: NewsCategoryId): Promise<NewsArticle[]> {
   "use cache";
-  cacheLife("minutes");
+  cacheLife(NEWS_CACHE_LIFE);
   cacheTag(`news-feed-${categoryId}`);
 
   const category = NEWS_CATEGORIES.find((c) => c.id === categoryId);

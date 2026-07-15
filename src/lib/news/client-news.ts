@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { fetchArticles, type NewsArticle } from "./newsapi";
+import { fetchArticles, NEWS_CACHE_LIFE, type NewsArticle } from "./newsapi";
 
 export type ClientNewsFeed = {
   clientId: string;
@@ -13,7 +13,7 @@ export type ClientNewsFeed = {
 // first, then passes just the name in here.
 async function getNewsForClient(clientName: string): Promise<NewsArticle[]> {
   "use cache";
-  cacheLife("minutes");
+  cacheLife(NEWS_CACHE_LIFE);
   cacheTag(`client-news-${clientName}`);
   return fetchArticles(`"${clientName}"`, 5);
 }
