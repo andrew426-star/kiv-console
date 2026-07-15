@@ -1,9 +1,9 @@
 import type { GeminiFunctionDeclaration, GeminiTool } from "@/lib/ai/gemini";
+import { webSearch, WEB_SEARCH_DECL } from "@/lib/ai/web-search";
 import { getMarketQuotes, getQuotesFor } from "@/lib/market/finnhub";
 import { getNewsFeed } from "@/lib/news/newsapi";
 import { getStripeFinancials } from "@/lib/portfolio/stripe";
 import { getAlpacaPortfolio } from "@/lib/portfolio/alpaca";
-import { webSearch } from "./tools/web-search";
 import { getWatchlistForAgent } from "./tools/watchlist";
 import { getCalendarEventsForAgent } from "./tools/calendar";
 import { getCompanyStatsForAgent } from "./tools/company-stats";
@@ -11,24 +11,6 @@ import { searchCompanyDriveForAgent } from "./tools/company-drive";
 import { getIntegrationsStatus } from "./tools/integrations";
 import { generateShowcaseForAgent } from "./tools/showcase";
 import { createGithubIssue } from "./tools/github";
-
-// A custom function tool backed by Tavily (see tools/web-search.ts), not
-// Gemini's built-in googleSearch grounding — that requires billing enabled
-// even on an otherwise-free project. Being a regular function declaration
-// (not a built-in tool) also means it can be freely combined with any other
-// custom tool in the same request, unlike googleSearch.
-const WEB_SEARCH_DECL: GeminiFunctionDeclaration = {
-  name: "web_search",
-  description:
-    "Search the web for current information. Use for anything requiring up-to-date or external facts you don't already know.",
-  parameters: {
-    type: "OBJECT",
-    properties: {
-      query: { type: "STRING", description: "The search query." },
-    },
-    required: ["query"],
-  },
-};
 
 const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   name: "get_news_feed",

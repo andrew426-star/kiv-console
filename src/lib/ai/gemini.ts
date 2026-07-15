@@ -94,3 +94,55 @@ export async function generateContent(params: {
 
   return { parts: candidate.content?.parts ?? [], finishReason: candidate.finishReason };
 }
+
+// Higher-level helper for anything that needs a multi-turn tool-calling
+// loop (agent replies, ALE's research/pitch/showcase generation): drives
+// generateContent() until Gemini stops requesting function calls, executing
+// each one via `dispatch` and feeding the result back as the next turn.
+export async function generateWithToolLoop(params: {
+  systemInstruction?: string;
+  initialPrompt: string;
+  tools?: GeminiTool[];
+  dispatch: (name: string, args: Record<string, unknown>) => Promise<unknown>;
+  maxOutputTokens?: number;
+  maxIterations?: number;
+}): Promise<string> {
+  const contents: GeminiContent[] = [{ role: "user", parts: [{ text: params.initialPrompt }] }];
+  const maxIterations = params.maxIterations ?? 6;
+
+  for (let i = 0; i < maxIterations; i++) {
+    const { parts, finishReason } = await generateContent({
+      systemInstruction: params.systemInstruction,
+      contents,
+      tools: params.tools,
+      maxOutputTokens: params.maxOutputTokens,
+    });
+
+    if (finishReason === "SAFETY" || finishReason === "RECITATION") {
+      throw new Error("Gemini declined to respond to this request");
+    }
+    if (finishReason === "MAX_TOKENS") {
+      throw new Error("Gemini's response was truncated (hit max output tokens)");
+    }
+
+    const calls = functionCallParts(parts);
+    if (calls.length === 0) {
+      const text = textPart(parts);
+      if (!text) throw new Error("Gemini returned no text content");
+      return text;
+    }
+
+    contents.push({ role: "model", parts: calls });
+    const responseParts = await Promise.all(
+      calls.map(async (call) => ({
+        functionResponse: {
+          name: call.functionCall.name,
+          response: { result: await params.dispatch(call.functionCall.name, call.functionCall.args) },
+        },
+      })),
+    );
+    contents.push({ role: "user", parts: responseParts });
+  }
+
+  throw new Error("Hit max tool-call iterations without a final reply");
+}

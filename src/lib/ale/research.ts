@@ -1,4 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { generateWithToolLoop } from "@/lib/ai/gemini";
+import { WEB_SEARCH_DECL, dispatchWebSearch } from "@/lib/ai/web-search";
 import { getWorkspaceAccessToken } from "@/lib/google/access-token";
 import { ensureTabExists, appendRows, getRows } from "@/lib/google/sheets";
 import {
@@ -11,8 +12,6 @@ import {
   CONTACTS_TAB,
   CONTACTS_HEADER,
 } from "./spreadsheets";
-
-const client = new Anthropic();
 
 async function fetchPhoneNumber(placeId: string): Promise<string> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
@@ -39,7 +38,7 @@ type ResearchOutput = {
   contacts: Array<{ name: string; instagram: string | null; facebook: string | null }>;
 };
 
-async function researchWithClaude(
+async function researchWithGemini(
   companyName: string,
   website: string,
   contacts: ContactInput[],
@@ -59,42 +58,26 @@ async function researchWithClaude(
 Contacts:
 ${contactList}
 
-Respond with ONLY a JSON object, no other text, in exactly this shape:
+Use the web_search tool for anything you state as fact. Respond with ONLY a JSON object, no other text, in exactly this shape:
 {"businessOverview": "...", "aum": "...", "contacts": [{"name": "...", "instagram": "..." or null, "facebook": "..." or null}]}`;
 
-  // Streamed + a larger budget than a plain single-shot call — 2048 was
-  // getting truncated mid-JSON on companies needing more web-search turns
-  // (no closing brace ever appeared, so the regex below found nothing).
-  const stream = client.messages.stream({
-    model: "claude-opus-4-8",
-    max_tokens: 8000,
-    thinking: { type: "adaptive" },
-    tools: [{ type: "web_search_20260209", name: "web_search" }],
-    messages: [{ role: "user", content: prompt }],
+  const text = await generateWithToolLoop({
+    initialPrompt: prompt,
+    tools: [{ functionDeclarations: [WEB_SEARCH_DECL] }],
+    dispatch: (name, args) => {
+      if (name !== "web_search") throw new Error(`Unknown tool: ${name}`);
+      return dispatchWebSearch(args);
+    },
+    maxOutputTokens: 8000,
   });
-  for await (const _event of stream) {
-    void _event;
-  }
-  const response = await stream.finalMessage();
 
-  if (response.stop_reason === "refusal") {
-    throw new Error("Claude declined to research this company");
-  }
-  if (response.stop_reason === "max_tokens") {
-    throw new Error("Claude's research response was truncated (hit max_tokens)");
-  }
-
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Claude did not return parseable JSON");
+  if (!jsonMatch) throw new Error("Gemini did not return parseable JSON");
 
   try {
     return JSON.parse(jsonMatch[0]) as ResearchOutput;
   } catch {
-    throw new Error("Claude's response was not valid JSON");
+    throw new Error("Gemini's response was not valid JSON");
   }
 }
 
@@ -104,7 +87,7 @@ export type ResearchResult = { contactsWritten: number };
 // reasoning as Hunter enrichment staying manual). Combines Stage 1's GLE
 // data (website, address — from Websites tab; contacts — from Hunter tab)
 // with a fresh Places Details call for phone (not captured in Stage 1,
-// matching the spec's own Stage 1 field lists) and a Claude + web-search
+// matching the spec's own Stage 1 field lists) and a Gemini + web-search
 // call for the Business Overview, AUM, and any findable Instagram/Facebook
 // profiles, then writes into the real ALE spreadsheet's Companies/Contacts
 // tabs — which already existed with real data before this pipeline, keyed
@@ -142,7 +125,7 @@ export async function researchCompanyAndContacts(placeId: string): Promise<Resea
     twitter: r[14] ?? "",
   }));
 
-  const research = await researchWithClaude(name, website, contacts);
+  const research = await researchWithGemini(name, website, contacts);
 
   await appendRows(accessToken, ALE_SPREADSHEET_ID, COMPANIES_TAB, [
     [name, website, formattedAddress ?? "", phone, research.businessOverview, research.aum, "TRUE"],

@@ -1,9 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { generateContent, textPart } from "@/lib/ai/gemini";
 import { createDoc } from "@/lib/google/docs";
 import { findFolderIdByName, moveFileToFolder } from "@/lib/google/drive";
 import { SHOWCASE_DRIVE_FOLDER_NAME } from "./spreadsheets";
-
-const client = new Anthropic();
 
 async function generateShowcaseContent(companyName: string, demoSetup: string): Promise<string> {
   const prompt = `You're expanding a brief "Demo Setup" plan into a full, presentation-ready mock showcase script for Kivaro AI to use live on a sales call or audit with "${companyName}".
@@ -15,22 +13,20 @@ Write a step-by-step showcase script Andrew can literally read from and act on d
 
 Write in plain text: no markdown headers, no asterisks. Use numbered steps.`;
 
-  const response = await client.messages.create({
-    model: "claude-opus-4-8",
-    max_tokens: 4000,
-    thinking: { type: "adaptive" },
-    messages: [{ role: "user", content: prompt }],
+  const { parts, finishReason } = await generateContent({
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    maxOutputTokens: 4000,
   });
 
-  if (response.stop_reason === "refusal") {
-    throw new Error("Claude declined to generate a showcase script");
+  if (finishReason === "SAFETY" || finishReason === "RECITATION") {
+    throw new Error("Gemini declined to generate a showcase script");
   }
-  if (response.stop_reason === "max_tokens") {
-    throw new Error("Claude's showcase response was truncated (hit max_tokens)");
+  if (finishReason === "MAX_TOKENS") {
+    throw new Error("Gemini's showcase response was truncated (hit max output tokens)");
   }
 
-  const text = response.content.find((b): b is Anthropic.TextBlock => b.type === "text")?.text;
-  if (!text) throw new Error("Claude returned no text content");
+  const text = textPart(parts);
+  if (!text) throw new Error("Gemini returned no text content");
   return text;
 }
 

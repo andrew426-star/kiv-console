@@ -1,4 +1,5 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { generateWithToolLoop } from "@/lib/ai/gemini";
+import { WEB_SEARCH_DECL, dispatchWebSearch } from "@/lib/ai/web-search";
 import { getWorkspaceAccessToken } from "@/lib/google/access-token";
 import { ensureTabExists, appendRows, getRows } from "@/lib/google/sheets";
 import { findFolderIdByName, moveFileToFolder } from "@/lib/google/drive";
@@ -20,8 +21,6 @@ import {
   SALES_PITCH_LOG_HEADER,
   SALES_PITCH_DRIVE_FOLDER_NAME,
 } from "./spreadsheets";
-
-const client = new Anthropic();
 
 type ProblemOutput = {
   sourceUrl: string;
@@ -83,42 +82,27 @@ Respond with ONLY a JSON object, no other text, in exactly this shape:
 }
 Exactly one of "problem"/"newEra" must be non-null — never both, never neither. The top-level "demoSetup" is separate from newEra.demoSetup (that one's just for the New Era tab) — always fill in the top-level one, in both branches.`;
 
-  const stream = client.messages.stream({
-    model: "claude-opus-4-8",
-    // 8000 was still getting truncated on companies needing more web-search
-    // turns before the final JSON — this call produces more fields (History
-    // + Problem-or-New-Era + 4 pitch pieces) than Stage 2's research call.
-    max_tokens: 16000,
-    thinking: { type: "adaptive" },
-    tools: [{ type: "web_search_20260209", name: "web_search" }],
-    messages: [{ role: "user", content: prompt }],
+  const text = await generateWithToolLoop({
+    initialPrompt: prompt,
+    tools: [{ functionDeclarations: [WEB_SEARCH_DECL] }],
+    dispatch: (name, args) => {
+      if (name !== "web_search") throw new Error(`Unknown tool: ${name}`);
+      return dispatchWebSearch(args);
+    },
+    // This call produces more fields (History + Problem-or-New-Era + 4
+    // pitch pieces) than Stage 2's research call — 8000 was still getting
+    // truncated mid-JSON on companies needing more web-search turns.
+    maxOutputTokens: 16000,
+    maxIterations: 8,
   });
-  // Background batch job, no UI to stream to — drain, then read the
-  // accumulated result. Large max_tokens + tool use, so streaming avoids
-  // the non-streaming request-timeout risk on a call this size.
-  for await (const _event of stream) {
-    void _event;
-  }
-  const response = await stream.finalMessage();
 
-  if (response.stop_reason === "refusal") {
-    throw new Error("Claude declined to generate a sales pitch for this company");
-  }
-  if (response.stop_reason === "max_tokens") {
-    throw new Error("Claude's sales pitch response was truncated (hit max_tokens)");
-  }
-
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join("\n");
   const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Claude did not return parseable JSON");
+  if (!jsonMatch) throw new Error("Gemini did not return parseable JSON");
 
   try {
     return JSON.parse(jsonMatch[0]) as PitchOutput;
   } catch {
-    throw new Error("Claude's response was not valid JSON");
+    throw new Error("Gemini's response was not valid JSON");
   }
 }
 
