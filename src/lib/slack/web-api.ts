@@ -33,21 +33,6 @@ export async function getSlackBotUserId(botToken: string): Promise<string> {
   return data.user_id;
 }
 
-// Used to recognize whether a bot-authored Slack event came from a specific
-// known bot (e.g. Jarvis) — bot_id is stable per app installation and always
-// present on bot-authored message events, unlike `user`, which Slack doesn't
-// reliably populate there.
-export async function getSlackBotId(botToken: string): Promise<string> {
-  const res = await fetch("https://slack.com/api/auth.test", {
-    headers: { Authorization: `Bearer ${botToken}` },
-  });
-  const data = (await res.json()) as { ok: boolean; bot_id?: string; error?: string };
-  if (!data.ok || !data.bot_id) {
-    throw new Error(`Slack auth.test failed: ${data.error ?? "unknown error"}`);
-  }
-  return data.bot_id;
-}
-
 export type SlackThreadMessage = {
   ts: string;
   text?: string;

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { findAgent } from "@/lib/agents/roster";
-import { postSlackMessage } from "@/lib/slack/web-api";
+import { getSlackCredentials } from "@/lib/slack/credentials";
+import { getSlackBotUserId, postSlackMessage } from "@/lib/slack/web-api";
 import { logAgentActivity } from "@/lib/agents/log";
 
 type NotifyPayload = { agentId?: unknown; message?: unknown };
@@ -12,9 +13,10 @@ type NotifyPayload = { agentId?: unknown; message?: unknown };
 // Jarvis's own actions).
 //
 // Slack has no bot-to-bot DM support (conversations.open rejects it with
-// cannot_dm_bot, confirmed live) — so instead each agent gets a private
-// channel with just Jarvis + that agent's bot as members, created once in
-// Slack and pointed to here via SLACK_JARVIS_CHANNEL_<AGENT_ID>.
+// cannot_dm_bot, confirmed live), so Jarvis and all 15 agents share one
+// channel (SLACK_JARVIS_CHANNEL) and this @mentions the specific target —
+// app_mention already replies for any sender, no per-agent Slack setup
+// needed beyond being a member of that one channel.
 export async function POST(request: NextRequest) {
   const apiKey = process.env.AGENT_LOG_API_KEY;
   if (!apiKey) {
@@ -29,6 +31,11 @@ export async function POST(request: NextRequest) {
   const jarvisToken = process.env.SLACK_BOT_TOKEN_JARVIS;
   if (!jarvisToken) {
     return NextResponse.json({ error: "SLACK_BOT_TOKEN_JARVIS is not configured" }, { status: 503 });
+  }
+
+  const channel = process.env.SLACK_JARVIS_CHANNEL;
+  if (!channel) {
+    return NextResponse.json({ error: "SLACK_JARVIS_CHANNEL is not configured" }, { status: 503 });
   }
 
   let body: NotifyPayload;
@@ -47,16 +54,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "message is required" }, { status: 400 });
   }
 
-  const channel = process.env[`SLACK_JARVIS_CHANNEL_${(agentId as string).toUpperCase()}`];
-  if (!channel) {
+  const targetCredentials = getSlackCredentials(agentId as string);
+  if (!targetCredentials) {
     return NextResponse.json(
-      { error: `No Jarvis channel configured for agent: ${agentId}` },
+      { error: `No Slack credentials configured for agent: ${agentId}` },
       { status: 503 },
     );
   }
 
   try {
-    await postSlackMessage(jarvisToken, { channel, text: message });
+    const targetUserId = await getSlackBotUserId(targetCredentials.botToken);
+    await postSlackMessage(jarvisToken, { channel, text: `<@${targetUserId}> ${message}` });
     const data = await logAgentActivity({
       agentId: "jarvis",
       action: "Sent Slack message",

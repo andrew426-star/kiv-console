@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { after } from "next/server";
 import { getSlackCredentials } from "@/lib/slack/credentials";
 import { verifySlackSignature } from "@/lib/slack/verify";
-import { postSlackMessage, getSlackBotId } from "@/lib/slack/web-api";
+import { postSlackMessage } from "@/lib/slack/web-api";
 import { buildThreadHistory } from "@/lib/slack/thread-history";
 import { generateAgentReply } from "@/lib/agents/respond";
 import { logAgentActivity } from "@/lib/agents/log";
@@ -79,35 +79,25 @@ export async function POST(
   }
 
   const event = payload.event;
+  // Any @mention gets a reply regardless of who sent it — including Jarvis
+  // (Andrew's separate assistant app), which reaches an agent by @mentioning
+  // it in a shared channel both bots are in. No bot-identity check needed
+  // here: Slack only fires app_mention for the bot actually named.
   const isMention = event?.type === "app_mention";
   // channel_type "im" is required here — without it, a plain "message"
   // event fires for every bot present in a channel for every message sent
   // there (not just DMs), which made all 15 agents reply to one @mention.
-  const isPlainDirectMessage =
+  const isDirectMessage =
     event?.type === "message" && event.channel_type === "im" && !event.bot_id;
-  // A message from a bot is normally the anti-loop case above excludes —
-  // except Jarvis (Andrew's separate assistant app), which should get a
-  // real reply. Slack has no bot-to-bot DM support, so Jarvis reaches an
-  // agent via a private channel ("group") with just the two of them in it,
-  // not a literal DM ("im") — both channel_types are eligible here.
-  // Confirming "is this actually Jarvis" needs a live Slack call, so it's
-  // deferred into after() below (keep the ack fast); this flag is just the
-  // cheap synchronous eligibility check.
-  const isPossibleJarvisMessage =
-    event?.type === "message" &&
-    (event.channel_type === "im" || event.channel_type === "group") &&
-    !!event.bot_id;
 
   if (
     payload.type === "event_callback" &&
-    (isMention || isPlainDirectMessage || isPossibleJarvisMessage) &&
+    (isMention || isDirectMessage) &&
     event?.text &&
     event.channel
   ) {
     const channel = event.channel;
     const text = event.text;
-    const botId = event.bot_id;
-    const fromJarvis = isPossibleJarvisMessage;
     // Only thread the reply if the triggering message was already inside a
     // thread — a fresh mention should post as a normal channel message, not
     // start a thread.
@@ -118,15 +108,6 @@ export async function POST(
     // work after the response is sent.
     after(async () => {
       try {
-        // A bot-sent message is only worth replying to if it's actually
-        // Jarvis — any other bot falls through here silently, preserving
-        // the original anti-loop behavior.
-        if (fromJarvis) {
-          const jarvisToken = process.env.SLACK_BOT_TOKEN_JARVIS;
-          const jarvisBotId = jarvisToken ? await getSlackBotId(jarvisToken).catch(() => null) : null;
-          if (!jarvisBotId || jarvisBotId !== botId) return;
-        }
-
         // Only a reply within an *existing* thread has history to fetch —
         // a fresh mention (no thread_ts) starts a genuinely new
         // conversation. A history-fetch failure shouldn't block the reply
@@ -140,11 +121,7 @@ export async function POST(
             )
           : [];
 
-        // Grounds the agent in who's actually messaging it, mirroring the
-        // "Andrew:" / "Another agent:" prefix convention buildThreadHistory
-        // already uses for prior turns.
-        const incomingText = fromJarvis ? `Jarvis: ${text}` : text;
-        const reply = await generateAgentReply(agentId, incomingText, history);
+        const reply = await generateAgentReply(agentId, text, history);
         await postSlackMessage(credentials.botToken, { channel, text: reply, threadTs });
         await logAgentActivity({
           agentId,
