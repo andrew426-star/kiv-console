@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { findAgent } from "@/lib/agents/roster";
-import { logAgentActivity, VALID_STATUSES, type LogStatus } from "@/lib/agents/log";
+import { logAgentActivity, isLoggableAgentId, VALID_STATUSES, type LogStatus } from "@/lib/agents/log";
 
 type LogPayload = {
   agentId?: unknown;
@@ -32,7 +31,7 @@ export async function POST(request: NextRequest) {
 
   const { agentId, action, detail, status } = body;
 
-  if (typeof agentId !== "string" || !findAgent(agentId)) {
+  if (typeof agentId !== "string" || !isLoggableAgentId(agentId)) {
     return NextResponse.json({ error: `Unknown agentId: ${String(agentId)}` }, { status: 400 });
   }
   if (typeof action !== "string" || action.trim().length === 0) {

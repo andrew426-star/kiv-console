@@ -7,12 +7,15 @@ import { NextResponse, type NextRequest } from "next/server";
 // session — it enforces Slack's HMAC request signature instead.
 // /api/ale/batch is the weekday-batch GitHub Actions cron, same bearer-token
 // pattern as /api/agents/log.
+// /api/jarvis/notify is Jarvis's own backend calling in to DM an agent —
+// same bearer-token pattern as /api/agents/log.
 const PUBLIC_PATHS = [
   "/login",
   "/api/health",
   "/api/agents/log",
   "/api/slack/events",
   "/api/ale/batch",
+  "/api/jarvis",
 ];
 
 export async function proxy(request: NextRequest) {

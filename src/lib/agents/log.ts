@@ -4,6 +4,15 @@ import { findAgent } from "./roster";
 export const VALID_STATUSES = ["info", "success", "warning", "error"] as const;
 export type LogStatus = (typeof VALID_STATUSES)[number];
 
+// Non-roster ids allowed to write to agent_activity_log, for external
+// services with their own dedicated K.I.V. page but no public roster entry.
+// See src/app/(dashboard)/jarvis/page.tsx.
+const EXTRA_LOGGABLE_AGENT_IDS = new Set(["jarvis"]);
+
+export function isLoggableAgentId(agentId: string): boolean {
+  return !!findAgent(agentId) || EXTRA_LOGGABLE_AGENT_IDS.has(agentId);
+}
+
 export type LogAgentActivityInput = {
   agentId: string;
   action: string;
@@ -15,7 +24,7 @@ export type LogAgentActivityInput = {
 // auth, for other services) and the in-process Slack event handler (which
 // already runs server-side and can skip the HTTP round-trip to itself).
 export async function logAgentActivity({ agentId, action, detail, status }: LogAgentActivityInput) {
-  if (!findAgent(agentId)) {
+  if (!isLoggableAgentId(agentId)) {
     throw new Error(`Unknown agentId: ${agentId}`);
   }
   if (!action || action.trim().length === 0) {

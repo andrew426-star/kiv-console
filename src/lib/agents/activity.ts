@@ -20,7 +20,10 @@ export async function getActivitySnapshot(): Promise<ActivitySnapshot> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("agent_activity_log")
+    // Jarvis has its own dedicated page (src/app/(dashboard)/jarvis/page.tsx)
+    // — keep it out of the 15-agent feed here.
     .select("id, agent_id, action, detail, status, created_at")
+    .neq("agent_id", "jarvis")
     .order("created_at", { ascending: false })
     .limit(100);
 

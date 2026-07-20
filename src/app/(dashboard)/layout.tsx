@@ -42,6 +42,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/autonomy" className="text-muted-foreground transition-colors hover:text-foreground">
             Autonomy
           </Link>
+          <Link href="/jarvis" className="text-muted-foreground transition-colors hover:text-foreground">
+            Jarvis
+          </Link>
         </nav>
         <form action={signOut}>
           <Button variant="ghost" size="sm" type="submit">
