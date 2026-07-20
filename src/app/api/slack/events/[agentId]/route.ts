@@ -85,24 +85,29 @@ export async function POST(
   // there (not just DMs), which made all 15 agents reply to one @mention.
   const isPlainDirectMessage =
     event?.type === "message" && event.channel_type === "im" && !event.bot_id;
-  // A DM from a bot is normally the anti-loop case above excludes — except
-  // Jarvis (Andrew's separate assistant app), whose DMs should get a real
-  // reply. Confirming "is this actually Jarvis" needs a live Slack call, so
-  // it's deferred into after() below (keep the ack fast); this flag is just
-  // the cheap synchronous eligibility check.
-  const isPossibleJarvisDirectMessage =
-    event?.type === "message" && event.channel_type === "im" && !!event.bot_id;
+  // A message from a bot is normally the anti-loop case above excludes —
+  // except Jarvis (Andrew's separate assistant app), which should get a
+  // real reply. Slack has no bot-to-bot DM support, so Jarvis reaches an
+  // agent via a private channel ("group") with just the two of them in it,
+  // not a literal DM ("im") — both channel_types are eligible here.
+  // Confirming "is this actually Jarvis" needs a live Slack call, so it's
+  // deferred into after() below (keep the ack fast); this flag is just the
+  // cheap synchronous eligibility check.
+  const isPossibleJarvisMessage =
+    event?.type === "message" &&
+    (event.channel_type === "im" || event.channel_type === "group") &&
+    !!event.bot_id;
 
   if (
     payload.type === "event_callback" &&
-    (isMention || isPlainDirectMessage || isPossibleJarvisDirectMessage) &&
+    (isMention || isPlainDirectMessage || isPossibleJarvisMessage) &&
     event?.text &&
     event.channel
   ) {
     const channel = event.channel;
     const text = event.text;
     const botId = event.bot_id;
-    const fromJarvis = isPossibleJarvisDirectMessage;
+    const fromJarvis = isPossibleJarvisMessage;
     // Only thread the reply if the triggering message was already inside a
     // thread — a fresh mention should post as a normal channel message, not
     // start a thread.
@@ -113,9 +118,9 @@ export async function POST(
     // work after the response is sent.
     after(async () => {
       try {
-        // A bot-sent DM is only worth replying to if it's actually Jarvis —
-        // any other bot falls through here silently, preserving the
-        // original anti-loop behavior.
+        // A bot-sent message is only worth replying to if it's actually
+        // Jarvis — any other bot falls through here silently, preserving
+        // the original anti-loop behavior.
         if (fromJarvis) {
           const jarvisToken = process.env.SLACK_BOT_TOKEN_JARVIS;
           const jarvisBotId = jarvisToken ? await getSlackBotId(jarvisToken).catch(() => null) : null;
