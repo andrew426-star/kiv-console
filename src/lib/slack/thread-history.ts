@@ -29,3 +29,27 @@ export async function buildThreadHistory(
       return { role: "user", parts: [{ text: `${speaker}: ${m.text}` }] };
     });
 }
+
+// A plain reply within a thread (no fresh @mention) only fires a "message"
+// event, not "app_mention" — used to decide whether THIS agent should treat
+// that reply as directed at it. Every agent present in the channel gets the
+// same event (Slack doesn't scope "message" events to who's relevant), so
+// each one has to independently check whether it already has a foothold in
+// this specific thread before replying — otherwise a single unmentioned
+// reply would make all 15 agents chime in. Fails safe: any lookup error
+// means "not a participant," since staying silent is the safer default.
+export async function isThreadParticipant(
+  botToken: string,
+  channel: string,
+  threadTs: string,
+): Promise<boolean> {
+  try {
+    const [myUserId, messages] = await Promise.all([
+      getSlackBotUserId(botToken),
+      getThreadReplies(botToken, channel, threadTs),
+    ]);
+    return messages.some((m) => m.user === myUserId);
+  } catch {
+    return false;
+  }
+}

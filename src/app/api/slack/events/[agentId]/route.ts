@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { getSlackCredentials } from "@/lib/slack/credentials";
 import { verifySlackSignature } from "@/lib/slack/verify";
 import { postSlackMessage } from "@/lib/slack/web-api";
-import { buildThreadHistory } from "@/lib/slack/thread-history";
+import { buildThreadHistory, isThreadParticipant } from "@/lib/slack/thread-history";
 import { generateAgentReply } from "@/lib/agents/respond";
 import { logAgentActivity } from "@/lib/agents/log";
 import { findAgent } from "@/lib/agents/roster";
@@ -89,10 +89,19 @@ export async function POST(
   // there (not just DMs), which made all 15 agents reply to one @mention.
   const isDirectMessage =
     event?.type === "message" && event.channel_type === "im" && !event.bot_id;
+  // A plain reply within a thread, with no fresh @mention — previously
+  // invisible to every agent (matched neither isMention nor
+  // isDirectMessage), which is why a conversation would die the moment
+  // Andrew stopped re-mentioning the bot on every turn. Eligibility here is
+  // cheap/synchronous; whether THIS agent actually belongs in this thread
+  // is checked inside after() below (isThreadParticipant), since that needs
+  // a live Slack call.
+  const isUnmentionedThreadReply =
+    event?.type === "message" && !!event.thread_ts && event.channel_type !== "im" && !event.bot_id;
 
   if (
     payload.type === "event_callback" &&
-    (isMention || isDirectMessage) &&
+    (isMention || isDirectMessage || isUnmentionedThreadReply) &&
     event?.text &&
     event.channel
   ) {
@@ -102,12 +111,21 @@ export async function POST(
     // thread — a fresh mention should post as a normal channel message, not
     // start a thread.
     const threadTs = event.thread_ts;
+    const needsParticipantCheck = isUnmentionedThreadReply;
 
     // Slack requires a 200 within ~3s or it retries delivery; a tool-using
     // Gemini call routinely takes longer than that. Ack now, do the real
     // work after the response is sent.
     after(async () => {
       try {
+        // Every agent in the channel gets this same event — only reply if
+        // this agent already has a foothold in the thread (mentions/DMs
+        // skip this, they're always relevant).
+        if (needsParticipantCheck && threadTs) {
+          const participant = await isThreadParticipant(credentials.botToken, channel, threadTs);
+          if (!participant) return;
+        }
+
         // Only a reply within an *existing* thread has history to fetch —
         // a fresh mention (no thread_ts) starts a genuinely new
         // conversation. A history-fetch failure shouldn't block the reply
