@@ -122,6 +122,11 @@ export const SALES_PITCH_LOG_TAB = "ALE Sales Pitch Log";
 // "Showcase Doc URL" appended at the end (not inserted before "Generated
 // At") so existing rows just show a blank there rather than shifting every
 // column after it — same lesson as the earlier Demo Setup header fix.
+// "Hook"/"Landing Page URL"/"Outreach Email"/"Video URL" appended the same
+// way, for the personalized-landing-page delivery flow — Hook is
+// duplicated from HISTORY_TAB so the public /pitch/[slug] page's lookup
+// stays a single self-contained row read; Video URL starts blank and is
+// filled in manually once Andrew films/uploads something.
 export const SALES_PITCH_LOG_HEADER = [
   "Company",
   "Doc URL",
@@ -131,4 +136,8 @@ export const SALES_PITCH_LOG_HEADER = [
   "Demo Setup",
   "Generated At",
   "Showcase Doc URL",
+  "Hook",
+  "Landing Page URL",
+  "Outreach Email",
+  "Video URL",
 ];

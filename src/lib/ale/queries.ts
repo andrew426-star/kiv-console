@@ -22,6 +22,7 @@ export type Lead = {
   contactCount: number;
   researched: boolean;
   pitched: boolean;
+  landingPageUrl: string | null;
 };
 
 export type LeadsResult =
@@ -44,7 +45,7 @@ export async function getLeads(): Promise<LeadsResult> {
     ]);
     if (!gleTabs.includes(MAPS_DATA_TAB)) return { connected: true, leads: [] };
 
-    const [mapsRows, websiteRows, hunterRows, researchedPlaceIds, pitchedNames] = await Promise.all([
+    const [mapsRows, websiteRows, hunterRows, researchedPlaceIds, pitchLogRows] = await Promise.all([
       getRows(accessToken, GLE_SPREADSHEET_ID, MAPS_DATA_TAB),
       gleTabs.includes(WEBSITES_TAB)
         ? getRows(accessToken, GLE_SPREADSHEET_ID, WEBSITES_TAB)
@@ -57,9 +58,10 @@ export async function getLeads(): Promise<LeadsResult> {
         : Promise.resolve([] as string[]),
       // Separate spreadsheet — the "ALE Sales Pitch Log" tab doesn't exist
       // until the first sales pitch is ever generated, so a missing-tab
-      // error here just means "nothing pitched yet."
-      getColumnValues(accessToken, SALES_PITCH_LOG_SPREADSHEET_ID, SALES_PITCH_LOG_TAB, "A").catch(
-        () => [] as string[],
+      // error here just means "nothing pitched yet." Full rows (not just
+      // column A) so the Landing Page URL column is available too.
+      getRows(accessToken, SALES_PITCH_LOG_SPREADSHEET_ID, SALES_PITCH_LOG_TAB).catch(
+        () => [] as string[][],
       ),
     ]);
 
@@ -75,7 +77,12 @@ export async function getLeads(): Promise<LeadsResult> {
     }
 
     const researched = new Set(researchedPlaceIds);
-    const pitched = new Set(pitchedNames);
+    // Last write wins per company (in case of a re-pitch) — Landing Page
+    // URL is column index 9, matching SALES_PITCH_LOG_HEADER.
+    const latestPitchByName = new Map<string, string[]>();
+    for (const row of pitchLogRows) {
+      if (row[0]) latestPitchByName.set(row[0], row);
+    }
 
     // Maps Data columns: name, place_id, types, rating, address, latitude, longitude, state
     const leads = mapsRows
@@ -91,7 +98,8 @@ export async function getLeads(): Promise<LeadsResult> {
         // Companies/Sales Pitch Log tabs have no place_id column (pre-existing
         // schema) — both keyed by Company Name instead.
         researched: researched.has(r[0]),
-        pitched: pitched.has(r[0]),
+        pitched: latestPitchByName.has(r[0]),
+        landingPageUrl: latestPitchByName.get(r[0])?.[9] || null,
       }))
       .reverse();
 

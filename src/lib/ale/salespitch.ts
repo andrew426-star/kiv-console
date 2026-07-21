@@ -5,6 +5,8 @@ import { ensureTabExists, appendRows, getRows } from "@/lib/google/sheets";
 import { findFolderIdByName, moveFileToFolder } from "@/lib/google/drive";
 import { createDoc } from "@/lib/google/docs";
 import { generateShowcase } from "./showcase";
+import { buildLandingPageSlug, buildLandingPageUrl } from "./landing-page";
+import { buildOutreachEmail } from "./outreach-copy";
 import {
   GLE_SPREADSHEET_ID,
   WEBSITES_TAB,
@@ -112,14 +114,23 @@ Exactly one of "problem"/"newEra" must be non-null — never both, never neither
 // research behind them already lives in this spreadsheet's other tabs, so
 // this doc doesn't repeat it (per Andrew: doc holds the pitch, not the
 // research it's based on).
-function buildDocText(companyName: string, pitch: PitchOutput): string {
+//
+// "SEND THIS" goes first, above the older EMAIL VARIATION — Andrew's actual
+// habit is opening this doc and copying whatever's near the top, so the new
+// short outreach email (linking to the personalized landing page) needs to
+// be what he actually sees first, or the whole point of this change goes
+// unused. EMAIL VARIATION stays untouched below it, now reference-only.
+function buildDocText(companyName: string, pitch: PitchOutput, outreachEmail: string): string {
   return [
     `${companyName} — Sales Pitch`,
+    "",
+    "SEND THIS — OUTREACH EMAIL",
+    outreachEmail,
     "",
     "INITIAL PITCH",
     pitch.initialPitch,
     "",
-    "EMAIL VARIATION",
+    "EMAIL VARIATION (reference — longer, older version)",
     pitch.emailVariation,
     "",
     "FOLLOW-UP CALL VARIATION (if no response within 3 days)",
@@ -130,7 +141,7 @@ function buildDocText(companyName: string, pitch: PitchOutput): string {
   ].join("\n");
 }
 
-export type SalesPitchResult = { docUrl: string; folderFound: boolean };
+export type SalesPitchResult = { docUrl: string; folderFound: boolean; landingPageUrl: string };
 
 // Stage 3 — manual, per-lead trigger. Requires Stage 2 (a Companies tab
 // entry) to already exist for this lead. Writes History + (Problems or
@@ -196,7 +207,15 @@ export async function generateSalesPitch(placeId: string): Promise<SalesPitchRes
     ]);
   }
 
-  const docId = await createDoc(accessToken, `${name} Sales Pitch`, buildDocText(name, pitch));
+  const slug = buildLandingPageSlug(name);
+  const landingPageUrl = buildLandingPageUrl(slug);
+  const outreachEmail = buildOutreachEmail({ companyName: name, hook: pitch.hook, landingPageUrl });
+
+  const docId = await createDoc(
+    accessToken,
+    `${name} Sales Pitch`,
+    buildDocText(name, pitch, outreachEmail),
+  );
   const folderId = await findFolderIdByName(accessToken, SALES_PITCH_DRIVE_FOLDER_NAME);
   if (folderId) {
     await moveFileToFolder(accessToken, docId, folderId);
@@ -224,8 +243,12 @@ export async function generateSalesPitch(placeId: string): Promise<SalesPitchRes
       pitch.demoSetup,
       new Date().toISOString(),
       showcaseUrl,
+      pitch.hook,
+      landingPageUrl,
+      outreachEmail,
+      "", // Video URL — filled in manually once Andrew films/uploads something
     ],
   ]);
 
-  return { docUrl, folderFound: Boolean(folderId) };
+  return { docUrl, folderFound: Boolean(folderId), landingPageUrl };
 }

@@ -9,6 +9,7 @@ import { getCalendarEventsForAgent } from "./tools/calendar";
 import { getCompanyStatsForAgent } from "./tools/company-stats";
 import { searchCompanyDriveForAgent } from "./tools/company-drive";
 import { getIntegrationsStatus } from "./tools/integrations";
+import { getPipelineStatusForAgent } from "./tools/pipeline";
 import { generateShowcaseForAgent } from "./tools/showcase";
 import { createGithubIssue } from "./tools/github";
 import { getSearchConsoleStatsForAgent } from "./tools/search-console";
@@ -123,6 +124,13 @@ const CREATE_GITHUB_ISSUE_DECL: GeminiFunctionDeclaration = {
   },
 };
 
+const PIPELINE_STATUS_DECL: GeminiFunctionDeclaration = {
+  name: "get_pipeline_status",
+  description:
+    "Get Kivaro's current prospect and client listings — which companies are at what stage in the outreach process. Covers the Autonomous Lead Engine's automated pipeline (discovered, researched, or pitched) and existing clients with their status (active, paused, completed).",
+  parameters: { type: "OBJECT", properties: {} },
+};
+
 const SEARCH_CONSOLE_DECL: GeminiFunctionDeclaration = {
   name: "get_search_console_stats",
   description:
@@ -148,6 +156,7 @@ const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknow
   get_alpaca_portfolio: async () => getAlpacaPortfolio(),
   search_company_drive: async (args) => searchCompanyDriveForAgent(String(args.query ?? "")),
   get_integrations_status: async () => getIntegrationsStatus(),
+  get_pipeline_status: async () => getPipelineStatusForAgent(),
   generate_showcase: async (args) => generateShowcaseForAgent(String(args.companyName ?? "")),
   create_github_issue: async (args) =>
     createGithubIssue(String(args.title ?? ""), String(args.body ?? "")),
@@ -162,7 +171,7 @@ export async function dispatchTool(name: string, args: Record<string, unknown>):
 
 // Every agent gets integrations transparency per Andrew: "complete
 // transparency and awareness of all integrations involving Kivaro AI."
-const BASE_TOOLS: GeminiFunctionDeclaration[] = [INTEGRATIONS_STATUS_DECL];
+const BASE_TOOLS: GeminiFunctionDeclaration[] = [INTEGRATIONS_STATUS_DECL, PIPELINE_STATUS_DECL];
 
 // Per-agent tool matrix, on top of BASE_TOOLS — see the approved plan for
 // the reasoning behind each assignment. Agents not listed here get no
