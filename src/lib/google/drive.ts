@@ -38,6 +38,47 @@ export async function moveFileToFolder(
   if (!res.ok) throw new Error(`Drive move-to-folder failed: ${await res.text()}`);
 }
 
+export async function createFolder(
+  accessToken: string,
+  name: string,
+  parentId?: string,
+): Promise<string> {
+  const res = await fetch(`${DRIVE_BASE}/files`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: parentId ? [parentId] : undefined,
+    }),
+  });
+  if (!res.ok) throw new Error(`Drive folder create failed: ${await res.text()}`);
+  const data = (await res.json()) as { id: string };
+  return data.id;
+}
+
+// Loose "does the file name contain this term" match, scoped to one folder
+// and to actual video files — used by the public /pitch/[slug] page to find
+// a manually-filmed outreach video by company name, without Andrew having
+// to paste a URL anywhere. Andrew names files like "Trive Capital -
+// outreach.mp4"; this doesn't require an exact match. Most-recently-modified
+// match wins if more than one file matches.
+export async function findVideoByNameInFolder(
+  accessToken: string,
+  folderId: string,
+  nameContains: string,
+): Promise<{ id: string } | null> {
+  const escaped = nameContains.replace(/'/g, "\\'");
+  const q = `'${folderId}' in parents and name contains '${escaped}' and mimeType contains 'video/' and trashed = false`;
+  const res = await fetch(
+    `${DRIVE_BASE}/files?q=${encodeURIComponent(q)}&fields=files(id,modifiedTime)&orderBy=modifiedTime desc&pageSize=1`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!res.ok) throw new Error(`Drive video search failed: ${await res.text()}`);
+  const data = (await res.json()) as { files?: Array<{ id: string }> };
+  return data.files?.[0] ? { id: data.files[0].id } : null;
+}
+
 export async function deleteFile(accessToken: string, fileId: string): Promise<void> {
   const res = await fetch(`${DRIVE_BASE}/files/${fileId}`, {
     method: "DELETE",

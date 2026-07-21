@@ -6,6 +6,11 @@ export const ALE_SPREADSHEET_ID = "1iiBVFIV3qvSyqlHxGBdCRx3DlEgFKmi9P20INXmmYKs"
 export const SALES_PITCH_LOG_SPREADSHEET_ID = "1YEAJ0AQpaYgK7FTGXj-qRpQWNjjgVRZkUVxsqrrQCZg";
 export const SALES_PITCH_DRIVE_FOLDER_NAME = "Sales Pitches: Investment Institutions";
 export const SHOWCASE_DRIVE_FOLDER_NAME = "Client Showcases";
+// Andrew's manually-filmed per-company outreach videos land here, named
+// with the company name somewhere in the file name (e.g. "Trive Capital -
+// outreach.mp4") — the public /pitch/[slug] page looks these up live by
+// name, no manual linking step needed.
+export const OUTREACH_VIDEOS_DRIVE_FOLDER_NAME = "Outreach Videos";
 
 // Stage 1 — Geolocation Lead Engine (GLE spreadsheet)
 export const MAPS_DATA_TAB = "Maps Data";

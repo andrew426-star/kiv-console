@@ -28,7 +28,7 @@ export function buildLandingPageIntro(params: { companyName: string; hook: strin
   return `${params.hook} We put together a short breakdown of how Kivaro AI could help ${params.companyName} specifically.`;
 }
 
-export type VideoEmbed = { kind: "youtube" | "loom" | "vimeo" | "direct"; src: string };
+export type VideoEmbed = { kind: "youtube" | "loom" | "vimeo" | "drive" | "direct"; src: string };
 
 export function resolveVideoEmbed(url: string): VideoEmbed {
   const yt = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([\w-]+)/);
@@ -41,4 +41,12 @@ export function resolveVideoEmbed(url: string): VideoEmbed {
   if (vimeo) return { kind: "vimeo", src: `https://player.vimeo.com/video/${vimeo[1]}` };
 
   return { kind: "direct", src: url };
+}
+
+// A video found by findVideoByNameInFolder (src/lib/google/drive.ts) — the
+// standard iframe-embeddable preview URL for a Drive file. Requires the
+// file's sharing to be "Anyone with the link can view"; otherwise the
+// embed shows a permission prompt instead of the video.
+export function buildDriveVideoEmbed(fileId: string): VideoEmbed {
+  return { kind: "drive", src: `https://drive.google.com/file/d/${fileId}/preview` };
 }

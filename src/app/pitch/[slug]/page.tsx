@@ -3,19 +3,30 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getWorkspaceAccessToken } from "@/lib/google/access-token";
 import { getRows } from "@/lib/google/sheets";
-import { SALES_PITCH_LOG_SPREADSHEET_ID, SALES_PITCH_LOG_TAB } from "@/lib/ale/spreadsheets";
-import { buildLandingPageIntro, resolveVideoEmbed } from "@/lib/ale/outreach-copy";
+import { findFolderIdByName, findVideoByNameInFolder } from "@/lib/google/drive";
+import {
+  SALES_PITCH_LOG_SPREADSHEET_ID,
+  SALES_PITCH_LOG_TAB,
+  OUTREACH_VIDEOS_DRIVE_FOLDER_NAME,
+} from "@/lib/ale/spreadsheets";
+import { buildDriveVideoEmbed, buildLandingPageIntro, resolveVideoEmbed, type VideoEmbed } from "@/lib/ale/outreach-copy";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Column indices matching SALES_PITCH_LOG_HEADER in src/lib/ale/spreadsheets.ts.
 const COL = { company: 0, hook: 8, landingPageUrl: 9, videoUrl: 11 } as const;
 
-type PitchPageData = { companyName: string; hook: string; videoUrl: string } | null;
+type PitchPageData = { companyName: string; hook: string; video: VideoEmbed | null } | null;
 
-// React cache() so generateMetadata and the page body share one Sheets
-// round-trip per request. Deliberately does NOT log a view itself — only
-// the page body does, exactly once, so metadata resolution never
-// double-counts a view.
+// React cache() so generateMetadata and the page body share one round trip
+// per request. Deliberately does NOT log a view itself — only the page body
+// does, exactly once, so metadata resolution never double-counts a view.
+//
+// Video resolution order: a manually-pasted URL in the sheet's Video URL
+// column wins if present (YouTube/Loom/Vimeo/direct link); otherwise, live
+// search the "Outreach Videos" Drive folder for a file whose name contains
+// the company name — Andrew just has to drop a filmed video in there, no
+// linking step required. Both paths are optional; most companies won't
+// have a video yet.
 const getPitchRow = cache(async (slug: string): Promise<PitchPageData> => {
   const accessToken = await getWorkspaceAccessToken();
   if (!accessToken) return null;
@@ -24,11 +35,23 @@ const getPitchRow = cache(async (slug: string): Promise<PitchPageData> => {
   const row = rows.find((r) => (r[COL.landingPageUrl] ?? "").split("/pitch/").pop() === slug);
   if (!row) return null;
 
-  return {
-    companyName: row[COL.company] ?? "",
-    hook: row[COL.hook] ?? "",
-    videoUrl: row[COL.videoUrl] ?? "",
-  };
+  const companyName = row[COL.company] ?? "";
+  const pastedVideoUrl = row[COL.videoUrl] ?? "";
+
+  let video: VideoEmbed | null = pastedVideoUrl ? resolveVideoEmbed(pastedVideoUrl) : null;
+  if (!video && companyName) {
+    try {
+      const folderId = await findFolderIdByName(accessToken, OUTREACH_VIDEOS_DRIVE_FOLDER_NAME);
+      const match = folderId
+        ? await findVideoByNameInFolder(accessToken, folderId, companyName)
+        : null;
+      video = match ? buildDriveVideoEmbed(match.id) : null;
+    } catch (err) {
+      console.error(`Drive video lookup failed for "${companyName}"`, err);
+    }
+  }
+
+  return { companyName, hook: row[COL.hook] ?? "", video };
 });
 
 export async function generateMetadata({
@@ -71,7 +94,7 @@ async function PitchContent({ params }: { params: Promise<{ slug: string }> }) {
   }
 
   const intro = buildLandingPageIntro({ companyName: data.companyName, hook: data.hook });
-  const video = data.videoUrl ? resolveVideoEmbed(data.videoUrl) : null;
+  const video = data.video;
 
   return (
     <>
