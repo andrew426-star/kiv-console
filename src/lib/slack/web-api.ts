@@ -55,3 +55,22 @@ export async function getThreadReplies(
   }
   return data.messages ?? [];
 }
+
+// For DM history — unlike a thread, a DM channel has no thread_ts concept
+// at all, so this needs conversations.history instead of
+// conversations.replies. Returns newest-first (the opposite of
+// conversations.replies), which callers must account for.
+export async function getConversationHistory(
+  botToken: string,
+  channel: string,
+): Promise<SlackThreadMessage[]> {
+  const params = new URLSearchParams({ channel, limit: "50" });
+  const res = await fetch(`https://slack.com/api/conversations.history?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${botToken}` },
+  });
+  const data = (await res.json()) as { ok: boolean; messages?: SlackThreadMessage[]; error?: string };
+  if (!data.ok) {
+    throw new Error(`Slack conversations.history failed: ${data.error ?? "unknown error"}`);
+  }
+  return data.messages ?? [];
+}

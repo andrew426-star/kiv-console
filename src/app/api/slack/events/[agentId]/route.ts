@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { getSlackCredentials } from "@/lib/slack/credentials";
 import { verifySlackSignature } from "@/lib/slack/verify";
 import { postSlackMessage } from "@/lib/slack/web-api";
-import { buildThreadHistory, isThreadParticipant } from "@/lib/slack/thread-history";
+import { buildDmHistory, buildThreadHistory, isThreadParticipant } from "@/lib/slack/thread-history";
 import { generateAgentReply } from "@/lib/agents/respond";
 import { logAgentActivity } from "@/lib/agents/log";
 import { findAgent } from "@/lib/agents/roster";
@@ -126,10 +126,15 @@ export async function POST(
           if (!participant) return;
         }
 
-        // Only a reply within an *existing* thread has history to fetch —
-        // a fresh mention (no thread_ts) starts a genuinely new
-        // conversation. A history-fetch failure shouldn't block the reply
-        // itself; it just falls back to no memory for this one turn.
+        // A reply within an existing thread, or a DM (which is already a
+        // private, bounded conversation on its own), both have real
+        // history to fetch. A fresh channel @mention with no thread_ts
+        // starts a genuinely new conversation — there's no reliable way to
+        // isolate "this user's prior conversation with this agent" from
+        // general channel noise without real infrastructure this doesn't
+        // have, so that case is left alone. A history-fetch failure
+        // shouldn't block the reply itself; it just falls back to no
+        // memory for this one turn.
         const history = threadTs
           ? await buildThreadHistory(credentials.botToken, channel, threadTs, event.ts ?? "").catch(
               (err) => {
@@ -137,7 +142,12 @@ export async function POST(
                 return [];
               },
             )
-          : [];
+          : isDirectMessage
+            ? await buildDmHistory(credentials.botToken, channel, event.ts ?? "").catch((err) => {
+                console.error(`Failed to fetch DM history for ${agentId}`, err);
+                return [];
+              })
+            : [];
 
         const reply = await generateAgentReply(agentId, text, history);
         await postSlackMessage(credentials.botToken, { channel, text: reply, threadTs });

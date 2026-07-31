@@ -1,5 +1,26 @@
 import type { GeminiContent } from "@/lib/ai/gemini";
-import { getSlackBotUserId, getThreadReplies } from "./web-api";
+import { getConversationHistory, getSlackBotUserId, getThreadReplies, type SlackThreadMessage } from "./web-api";
+
+// Shared by buildThreadHistory and buildDmHistory — the Slack fetch and
+// ordering differ between the two, but turning raw Slack messages into
+// Gemini turns is identical either way.
+function mapMessagesToHistory(
+  messages: SlackThreadMessage[],
+  myUserId: string,
+  excludeTs: string,
+): GeminiContent[] {
+  return messages
+    .filter((m) => m.ts !== excludeTs && m.text)
+    .map((m): GeminiContent => {
+      if (m.user === myUserId) {
+        return { role: "model", parts: [{ text: m.text! }] };
+      }
+      // Prefixed so cross-talk (Andrew vs. a different agent posting in
+      // the same thread) stays distinguishable to the model.
+      const speaker = m.bot_id ? "Another agent" : "Andrew";
+      return { role: "user", parts: [{ text: `${speaker}: ${m.text}` }] };
+    });
+}
 
 // Rebuilds a thread's prior messages as Gemini conversation turns, so a
 // follow-up @mention in an existing thread actually has memory of what was
@@ -17,17 +38,27 @@ export async function buildThreadHistory(
     getThreadReplies(botToken, channel, threadTs),
   ]);
 
-  return messages
-    .filter((m) => m.ts !== excludeTs && m.text)
-    .map((m): GeminiContent => {
-      if (m.user === myUserId) {
-        return { role: "model", parts: [{ text: m.text! }] };
-      }
-      // Prefixed so cross-talk (Andrew vs. a different agent posting in
-      // the same thread) stays distinguishable to the model.
-      const speaker = m.bot_id ? "Another agent" : "Andrew";
-      return { role: "user", parts: [{ text: `${speaker}: ${m.text}` }] };
-    });
+  return mapMessagesToHistory(messages, myUserId, excludeTs);
+}
+
+// Same idea as buildThreadHistory, but for a DM that isn't itself a
+// threaded reply — previously a fresh DM message (no thread_ts) got zero
+// history, so back-to-back DMs were handled as independent one-offs even
+// though a DM channel is already a private, bounded conversation.
+// conversations.history returns newest-first (unlike conversations.replies,
+// which is oldest-first) — reversed here so callers always get
+// chronological order.
+export async function buildDmHistory(
+  botToken: string,
+  channel: string,
+  excludeTs: string,
+): Promise<GeminiContent[]> {
+  const [myUserId, messages] = await Promise.all([
+    getSlackBotUserId(botToken),
+    getConversationHistory(botToken, channel),
+  ]);
+
+  return mapMessagesToHistory([...messages].reverse(), myUserId, excludeTs);
 }
 
 // A plain reply within a thread (no fresh @mention) only fires a "message"
