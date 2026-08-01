@@ -19,10 +19,10 @@ export type ProspectsResult =
 // once it's promoted to a Lead (a real `clients` row), which is what the
 // `clients.name` exclusion below checks for.
 export async function getProspects(): Promise<ProspectsResult> {
-  const accessToken = await getWorkspaceAccessToken();
-  if (!accessToken) return { connected: false };
-
   try {
+    const accessToken = await getWorkspaceAccessToken();
+    if (!accessToken) return { connected: false };
+
     const [pitchRows, supabase] = await Promise.all([
       getRows(accessToken, SALES_PITCH_LOG_SPREADSHEET_ID, SALES_PITCH_LOG_TAB),
       createClient(),

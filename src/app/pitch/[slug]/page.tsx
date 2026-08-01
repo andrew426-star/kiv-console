@@ -28,30 +28,39 @@ type PitchPageData = { companyName: string; hook: string; video: VideoEmbed | nu
 // linking step required. Both paths are optional; most companies won't
 // have a video yet.
 const getPitchRow = cache(async (slug: string): Promise<PitchPageData> => {
-  const accessToken = await getWorkspaceAccessToken();
-  if (!accessToken) return null;
+  // A prospect-facing link — a broken Google connection must never crash
+  // this page (no error boundary exists in this app); it's better for a
+  // stale/unreachable pitch link to 404 than to show the generic Next.js
+  // server-error page to someone Andrew just sent this link to.
+  try {
+    const accessToken = await getWorkspaceAccessToken();
+    if (!accessToken) return null;
 
-  const rows = await getRows(accessToken, SALES_PITCH_LOG_SPREADSHEET_ID, SALES_PITCH_LOG_TAB);
-  const row = rows.find((r) => (r[COL.landingPageUrl] ?? "").split("/pitch/").pop() === slug);
-  if (!row) return null;
+    const rows = await getRows(accessToken, SALES_PITCH_LOG_SPREADSHEET_ID, SALES_PITCH_LOG_TAB);
+    const row = rows.find((r) => (r[COL.landingPageUrl] ?? "").split("/pitch/").pop() === slug);
+    if (!row) return null;
 
-  const companyName = row[COL.company] ?? "";
-  const pastedVideoUrl = row[COL.videoUrl] ?? "";
+    const companyName = row[COL.company] ?? "";
+    const pastedVideoUrl = row[COL.videoUrl] ?? "";
 
-  let video: VideoEmbed | null = pastedVideoUrl ? resolveVideoEmbed(pastedVideoUrl) : null;
-  if (!video && companyName) {
-    try {
-      const folderId = await findFolderIdByName(accessToken, OUTREACH_VIDEOS_DRIVE_FOLDER_NAME);
-      const match = folderId
-        ? await findVideoByNameInFolder(accessToken, folderId, companyName)
-        : null;
-      video = match ? buildDriveVideoEmbed(match.id) : null;
-    } catch (err) {
-      console.error(`Drive video lookup failed for "${companyName}"`, err);
+    let video: VideoEmbed | null = pastedVideoUrl ? resolveVideoEmbed(pastedVideoUrl) : null;
+    if (!video && companyName) {
+      try {
+        const folderId = await findFolderIdByName(accessToken, OUTREACH_VIDEOS_DRIVE_FOLDER_NAME);
+        const match = folderId
+          ? await findVideoByNameInFolder(accessToken, folderId, companyName)
+          : null;
+        video = match ? buildDriveVideoEmbed(match.id) : null;
+      } catch (err) {
+        console.error(`Drive video lookup failed for "${companyName}"`, err);
+      }
     }
-  }
 
-  return { companyName, hook: row[COL.hook] ?? "", video };
+    return { companyName, hook: row[COL.hook] ?? "", video };
+  } catch (err) {
+    console.error(`Failed to load pitch row for "${slug}"`, err);
+    return null;
+  }
 });
 
 export async function generateMetadata({

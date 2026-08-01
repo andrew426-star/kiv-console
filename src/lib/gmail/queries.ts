@@ -7,10 +7,10 @@ export type InboxState =
   | { connected: true; fetchError: string };
 
 export async function getInboxPreview(): Promise<InboxState> {
-  const accessToken = await getWorkspaceAccessToken();
-  if (!accessToken) return { connected: false };
-
   try {
+    const accessToken = await getWorkspaceAccessToken();
+    if (!accessToken) return { connected: false };
+
     const messages = await listRecentInboxMessages(accessToken, 8);
     return { connected: true, messages };
   } catch (err) {
