@@ -35,10 +35,10 @@ export type LeadsResult =
 // for a new scope) surfaces as an honest fetchError rather than crashing
 // the page — same discriminated-union shape as getCalendarState().
 export async function getLeads(): Promise<LeadsResult> {
-  const accessToken = await getWorkspaceAccessToken();
-  if (!accessToken) return { connected: false };
-
   try {
+    const accessToken = await getWorkspaceAccessToken();
+    if (!accessToken) return { connected: false };
+
     const [gleTabs, aleTabs] = await Promise.all([
       getSheetTabTitles(accessToken, GLE_SPREADSHEET_ID),
       getSheetTabTitles(accessToken, ALE_SPREADSHEET_ID),
