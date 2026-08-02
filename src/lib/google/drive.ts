@@ -58,9 +58,9 @@ export async function createFolder(
 }
 
 // Loose "does the file name contain this term" match, scoped to one folder
-// and to actual video files — used by the public /pitch/[slug] page to find
-// a manually-filmed outreach video by company name, without Andrew having
-// to paste a URL anywhere. Andrew names files like "Trive Capital -
+// and to actual video files — used by generateSalesPitch() (salespitch.ts)
+// to find a manually-filmed outreach video by company name, without Andrew
+// having to paste a URL anywhere. Andrew names files like "Trive Capital -
 // outreach.mp4"; this doesn't require an exact match. Most-recently-modified
 // match wins if more than one file matches.
 export async function findVideoByNameInFolder(

@@ -2,10 +2,9 @@ import { generateWithToolLoop } from "@/lib/ai/gemini";
 import { WEB_SEARCH_DECL, dispatchWebSearch } from "@/lib/ai/web-search";
 import { getWorkspaceAccessToken } from "@/lib/google/access-token";
 import { ensureTabExists, appendRows, getRows } from "@/lib/google/sheets";
-import { findFolderIdByName, moveFileToFolder } from "@/lib/google/drive";
+import { findFolderIdByName, findVideoByNameInFolder, moveFileToFolder } from "@/lib/google/drive";
 import { createDoc } from "@/lib/google/docs";
 import { generateShowcase } from "./showcase";
-import { buildLandingPageSlug, buildLandingPageUrl } from "./landing-page";
 import { buildOutreachEmail } from "./outreach-copy";
 import {
   GLE_SPREADSHEET_ID,
@@ -22,7 +21,24 @@ import {
   SALES_PITCH_LOG_TAB,
   SALES_PITCH_LOG_HEADER,
   SALES_PITCH_DRIVE_FOLDER_NAME,
+  OUTREACH_VIDEOS_DRIVE_FOLDER_NAME,
 } from "./spreadsheets";
+
+// Andrew names outreach videos with the company name somewhere in the file
+// name (e.g. "Trive Capital - outreach.mp4") and drops them in this shared
+// Drive folder — no manual linking step required. Most pitches won't have
+// one yet at generation time (he films these after the initial outreach),
+// so this returns null far more often than not; buildOutreachEmail() just
+// omits the video line when that happens.
+async function findOutreachVideoLink(
+  accessToken: string,
+  companyName: string,
+): Promise<string | null> {
+  const folderId = await findFolderIdByName(accessToken, OUTREACH_VIDEOS_DRIVE_FOLDER_NAME);
+  if (!folderId) return null;
+  const match = await findVideoByNameInFolder(accessToken, folderId, companyName);
+  return match ? `https://drive.google.com/file/d/${match.id}/view` : null;
+}
 
 type ProblemOutput = {
   sourceUrl: string;
@@ -141,7 +157,7 @@ function buildDocText(companyName: string, pitch: PitchOutput, outreachEmail: st
   ].join("\n");
 }
 
-export type SalesPitchResult = { docUrl: string; folderFound: boolean; landingPageUrl: string };
+export type SalesPitchResult = { docUrl: string; folderFound: boolean };
 
 // Stage 3 — manual, per-lead trigger. Requires Stage 2 (a Companies tab
 // entry) to already exist for this lead. Writes History + (Problems or
@@ -207,9 +223,19 @@ export async function generateSalesPitch(placeId: string): Promise<SalesPitchRes
     ]);
   }
 
-  const slug = buildLandingPageSlug(name);
-  const landingPageUrl = buildLandingPageUrl(slug);
-  const outreachEmail = buildOutreachEmail({ companyName: name, hook: pitch.hook, landingPageUrl });
+  // Rarely present yet at generation time — Andrew films these per-company
+  // after the initial outreach goes out — but if one's already sitting in
+  // the Drive folder, link it directly rather than leaving the email/sheet
+  // blank for no reason. A lookup failure shouldn't fail pitch generation.
+  const videoLink = await findOutreachVideoLink(accessToken, name).catch((err) => {
+    console.error(`Outreach video lookup failed for "${name}"`, err);
+    return null;
+  });
+  const outreachEmail = buildOutreachEmail({
+    companyName: name,
+    hook: pitch.hook,
+    videoLink: videoLink ?? undefined,
+  });
 
   const docId = await createDoc(
     accessToken,
@@ -244,11 +270,12 @@ export async function generateSalesPitch(placeId: string): Promise<SalesPitchRes
       new Date().toISOString(),
       showcaseUrl,
       pitch.hook,
-      landingPageUrl,
       outreachEmail,
-      "", // Video URL — filled in manually once Andrew films/uploads something
+      // Pre-filled if a video was already found above; otherwise left blank
+      // for Andrew to paste in manually once he films/uploads one.
+      videoLink ?? "",
     ],
   ]);
 
-  return { docUrl, folderFound: Boolean(folderId), landingPageUrl };
+  return { docUrl, folderFound: Boolean(folderId) };
 }

@@ -9,8 +9,6 @@ import { NextResponse, type NextRequest } from "next/server";
 // pattern as /api/agents/log.
 // /api/jarvis/notify is Jarvis's own backend calling in to DM an agent —
 // same bearer-token pattern as /api/agents/log.
-// /pitch/[slug] is the public, unauthenticated personalized landing page a
-// prospect opens from an outreach email — no K.I.V. session, no login.
 const PUBLIC_PATHS = [
   "/login",
   "/api/health",
@@ -18,7 +16,6 @@ const PUBLIC_PATHS = [
   "/api/slack/events",
   "/api/ale/batch",
   "/api/jarvis",
-  "/pitch",
 ];
 
 export async function proxy(request: NextRequest) {

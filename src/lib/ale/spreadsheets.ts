@@ -8,8 +8,9 @@ export const SALES_PITCH_DRIVE_FOLDER_NAME = "Sales Pitches: Investment Institut
 export const SHOWCASE_DRIVE_FOLDER_NAME = "Client Showcases";
 // Andrew's manually-filmed per-company outreach videos land here, named
 // with the company name somewhere in the file name (e.g. "Trive Capital -
-// outreach.mp4") — the public /pitch/[slug] page looks these up live by
-// name, no manual linking step needed.
+// outreach.mp4") — generateSalesPitch() (salespitch.ts) looks these up by
+// name and links directly to the video in the outreach email, no manual
+// linking step needed.
 export const OUTREACH_VIDEOS_DRIVE_FOLDER_NAME = "Outreach Videos";
 
 // Stage 1 — Geolocation Lead Engine (GLE spreadsheet)
@@ -127,11 +128,13 @@ export const SALES_PITCH_LOG_TAB = "ALE Sales Pitch Log";
 // "Showcase Doc URL" appended at the end (not inserted before "Generated
 // At") so existing rows just show a blank there rather than shifting every
 // column after it — same lesson as the earlier Demo Setup header fix.
-// "Hook"/"Landing Page URL"/"Outreach Email"/"Video URL" appended the same
-// way, for the personalized-landing-page delivery flow — Hook is
-// duplicated from HISTORY_TAB so the public /pitch/[slug] page's lookup
-// stays a single self-contained row read; Video URL starts blank and is
-// filled in manually once Andrew films/uploads something.
+// "Hook"/"Outreach Email"/"Video URL" appended the same way — Hook is
+// duplicated from HISTORY_TAB so this row stays self-contained; Video URL
+// is pre-filled if a matching video already exists in the Outreach Videos
+// Drive folder at generation time, otherwise left blank for Andrew to paste
+// in manually once he films/uploads one. Outreach no longer routes through
+// a personalized landing page — the video (once it exists) is linked
+// directly in the email itself.
 export const SALES_PITCH_LOG_HEADER = [
   "Company",
   "Doc URL",
@@ -142,7 +145,6 @@ export const SALES_PITCH_LOG_HEADER = [
   "Generated At",
   "Showcase Doc URL",
   "Hook",
-  "Landing Page URL",
   "Outreach Email",
   "Video URL",
 ];

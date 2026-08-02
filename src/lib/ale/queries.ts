@@ -22,7 +22,6 @@ export type Lead = {
   contactCount: number;
   researched: boolean;
   pitched: boolean;
-  landingPageUrl: string | null;
 };
 
 export type LeadsResult =
@@ -58,8 +57,7 @@ export async function getLeads(): Promise<LeadsResult> {
         : Promise.resolve([] as string[]),
       // Separate spreadsheet — the "ALE Sales Pitch Log" tab doesn't exist
       // until the first sales pitch is ever generated, so a missing-tab
-      // error here just means "nothing pitched yet." Full rows (not just
-      // column A) so the Landing Page URL column is available too.
+      // error here just means "nothing pitched yet."
       getRows(accessToken, SALES_PITCH_LOG_SPREADSHEET_ID, SALES_PITCH_LOG_TAB).catch(
         () => [] as string[][],
       ),
@@ -77,8 +75,8 @@ export async function getLeads(): Promise<LeadsResult> {
     }
 
     const researched = new Set(researchedPlaceIds);
-    // Last write wins per company (in case of a re-pitch) — Landing Page
-    // URL is column index 9, matching SALES_PITCH_LOG_HEADER.
+    // Last write wins per company (in case of a re-pitch) — only used below
+    // to check whether a pitch exists at all.
     const latestPitchByName = new Map<string, string[]>();
     for (const row of pitchLogRows) {
       if (row[0]) latestPitchByName.set(row[0], row);
@@ -99,7 +97,6 @@ export async function getLeads(): Promise<LeadsResult> {
         // schema) — both keyed by Company Name instead.
         researched: researched.has(r[0]),
         pitched: latestPitchByName.has(r[0]),
-        landingPageUrl: latestPitchByName.get(r[0])?.[9] || null,
       }))
       .reverse();
 

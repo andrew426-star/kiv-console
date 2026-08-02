@@ -119,21 +119,9 @@ export async function LeadsTable() {
                   </TableCell>
                   <TableCell>
                     {lead.pitched ? (
-                      <div className="flex flex-col items-start gap-1">
-                        <Badge variant="outline" className="border-kv-mint/40 text-kv-mint">
-                          Pitched
-                        </Badge>
-                        {lead.landingPageUrl ? (
-                          <a
-                            href={lead.landingPageUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-primary hover:underline"
-                          >
-                            Landing page
-                          </a>
-                        ) : null}
-                      </div>
+                      <Badge variant="outline" className="border-kv-mint/40 text-kv-mint">
+                        Pitched
+                      </Badge>
                     ) : lead.researched ? (
                       <PitchButton placeId={lead.placeId} />
                     ) : (

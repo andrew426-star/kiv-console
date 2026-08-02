@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 
-// Root-level backstop for routes outside (dashboard) (e.g. /login,
-// /pitch/[slug]) — kept deliberately minimal, no shared UI components, so
-// this itself has nothing left to fail on.
+// Root-level backstop for routes outside (dashboard) (e.g. /login) — kept
+// deliberately minimal, no shared UI components, so this itself has
+// nothing left to fail on.
 export default function RootError({
   error,
   reset,
