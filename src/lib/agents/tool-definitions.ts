@@ -13,6 +13,7 @@ import { getPipelineStatusForAgent } from "./tools/pipeline";
 import { generateShowcaseForAgent } from "./tools/showcase";
 import { createGithubIssue } from "./tools/github";
 import { getSearchConsoleStatsForAgent } from "./tools/search-console";
+import { sendOutreachEmailForAgent } from "./tools/send-outreach-email";
 
 const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   name: "get_news_feed",
@@ -138,6 +139,22 @@ const SEARCH_CONSOLE_DECL: GeminiFunctionDeclaration = {
   parameters: { type: "OBJECT", properties: {} },
 };
 
+const SEND_OUTREACH_EMAIL_DECL: GeminiFunctionDeclaration = {
+  name: "send_outreach_email",
+  description:
+    "Send the already-drafted Outreach Email for a company in the ALE Sales Pitch Log, verbatim, to that company's curated contact email, signed 'Andrew Thomas, Kivaro AI'. This is REAL — a real email leaves andrew.thomas@kivaroai.com and reaches a real person, irreversibly. Only works for a company with both a drafted Outreach Email and a real contact email already on file. Refuses (rather than resending) if this company was already sent to.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      companyName: {
+        type: "STRING",
+        description: "The exact company name as it appears in the ALE Sales Pitch Log.",
+      },
+    },
+    required: ["companyName"],
+  },
+};
+
 // name -> handler, used by the agent loop (src/lib/agents/respond.ts) once
 // Gemini requests a function call by name.
 const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
@@ -161,6 +178,7 @@ const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknow
   create_github_issue: async (args) =>
     createGithubIssue(String(args.title ?? ""), String(args.body ?? "")),
   get_search_console_stats: async () => getSearchConsoleStatsForAgent(),
+  send_outreach_email: async (args) => sendOutreachEmailForAgent(String(args.companyName ?? "")),
 };
 
 export async function dispatchTool(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -210,6 +228,8 @@ export function getToolsForAgent(agentId: string): GeminiTool[] {
         return [COMPANY_DRIVE_DECL];
       case "canvas":
         return [SEARCH_CONSOLE_DECL];
+      case "pipeline":
+        return [SEND_OUTREACH_EMAIL_DECL];
       default:
         return [];
     }

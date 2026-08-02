@@ -134,7 +134,10 @@ export const SALES_PITCH_LOG_TAB = "ALE Sales Pitch Log";
 // Drive folder at generation time, otherwise left blank for Andrew to paste
 // in manually once he films/uploads one. Outreach no longer routes through
 // a personalized landing page — the video (once it exists) is linked
-// directly in the email itself.
+// directly in the email itself. "Email Sent At" appended last — blank
+// until Pipeline's outreach-send tool actually sends this row's email,
+// then holds the real send timestamp; also the duplicate-send guard (a
+// populated value means don't send again).
 export const SALES_PITCH_LOG_HEADER = [
   "Company",
   "Doc URL",
@@ -147,4 +150,5 @@ export const SALES_PITCH_LOG_HEADER = [
   "Hook",
   "Outreach Email",
   "Video URL",
+  "Email Sent At",
 ];

@@ -7,6 +7,7 @@ import {
   HUNTER_TAB,
   ALE_SPREADSHEET_ID,
   COMPANIES_TAB,
+  CONTACTS_TAB,
   SALES_PITCH_LOG_SPREADSHEET_ID,
   SALES_PITCH_LOG_TAB,
 } from "./spreadsheets";
@@ -108,4 +109,27 @@ export async function getLeads(): Promise<LeadsResult> {
       fetchError: err instanceof Error ? err.message : "Unknown error",
     };
   }
+}
+
+export type OutreachContact = { name: string; email: string; title: string };
+
+// Stage 2's curated per-company contact list — always populated before a
+// pitch can exist, since generateSalesPitch() requires a Companies entry
+// which itself requires this tab. First row with both a real Contact Name
+// and Email, in sheet order — the simplest defensible pick; no "best
+// contact" ranking exists (or is needed) beyond that yet. Accepts an
+// already-fetched access token rather than calling
+// getWorkspaceAccessToken() itself, since callers (e.g. the outreach-send
+// tool) already have one from an earlier call in the same request.
+export async function getContactForCompany(
+  accessToken: string,
+  companyName: string,
+): Promise<OutreachContact | null> {
+  const rows = await getRows(accessToken, ALE_SPREADSHEET_ID, CONTACTS_TAB);
+  // Columns: Company Name, Website, Location, Phone, Business Overview,
+  // Contact Name, Title, Email, LinkedIn, Instagram, Twitter (X), Facebook
+  const match = rows.find(
+    (r) => r[0]?.toLowerCase() === companyName.toLowerCase() && r[5]?.trim() && r[7]?.trim(),
+  );
+  return match ? { name: match[5], email: match[7], title: match[6] ?? "" } : null;
 }

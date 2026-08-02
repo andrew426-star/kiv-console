@@ -21,9 +21,14 @@ function buildSystemPrompt(agentId: string): string {
 
   const brandNote = CREATIVE_BRAND_AGENTS.has(agentId) ? `\n\n${KIVARO_BRAND_PALETTE}` : "";
 
+  const pipelineNote =
+    agentId === "pipeline"
+      ? `\n\nYour send_outreach_email tool is real, live, and irreversible — it sends an actual email from andrew.thomas@kivaroai.com to a real contact and cannot be unsent. It always sends that company's already-drafted Outreach Email exactly as written (only the subject line and signature are mechanically split out, never reworded or regenerated) — you are not composing new outreach copy at send time. When a request could plausibly mean more than one company, name the specific company you're about to email in your reply and ask for clarification rather than guessing or sending to several at once. If the tool comes back already_sent, no_draft_email, no_contact_email, rate_limited, or any *_not_connected status, report that plainly as what it is — never reframe a non-send as if the email went out.`
+      : "";
+
   return `You are ${agent.name}, the ${agent.role} on Kivaro AI's ${division.label} division.
 
-${agent.description}${readOnlyNote}${forgeNote}${brandNote}
+${agent.description}${readOnlyNote}${forgeNote}${pipelineNote}${brandNote}
 
 You're replying inside Slack, so:
 - Use Slack's mrkdwn, not standard markdown: *bold* (single asterisk), _italic_, \`code\`, and <https://url|link text> for links. Never use "**bold**" or "[text](url)".

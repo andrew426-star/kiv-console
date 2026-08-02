@@ -36,6 +36,27 @@ export async function appendRows(
   if (!res.ok) throw new Error(`Sheets append failed for "${tabTitle}": ${await res.text()}`);
 }
 
+// Updates a single range's values in place — unlike appendRows, which
+// always adds a new row. Needed for point-writes against an existing row
+// (e.g. marking a Sales Pitch Log row's "Email Sent At" cell) where
+// appending a fresh row would be wrong.
+export async function updateRange(
+  accessToken: string,
+  spreadsheetId: string,
+  range: string,
+  values: (string | number | null)[][],
+): Promise<void> {
+  const res = await fetch(
+    `${SHEETS_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    },
+  );
+  if (!res.ok) throw new Error(`Sheets update failed for "${range}": ${await res.text()}`);
+}
+
 // Clears a range's values without deleting the row/column itself — used to
 // wipe a bad write during development. Rarely needed in normal operation.
 export async function clearRange(

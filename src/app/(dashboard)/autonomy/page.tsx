@@ -3,8 +3,10 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { buttonVariants } from "@/components/ui/button";
 import { DiscoveryForm } from "@/components/ale/discovery-form";
 import { LeadsTable } from "@/components/ale/leads-table";
+import { getZohoConnectionSummary } from "@/lib/zoho/access-token";
 
 function SectionSkeleton({ rows = 4 }: { rows?: number }) {
   return (
@@ -18,7 +20,47 @@ function SectionSkeleton({ rows = 4 }: { rows?: number }) {
   );
 }
 
-export default function AutonomyPage() {
+async function ZohoConnectionCard({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const [{ error }, status] = await Promise.all([searchParams, getZohoConnectionSummary()]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-heading">Zoho Mail — Pipeline's send capability</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {error ? <p className="text-sm text-destructive">Connection failed: {error}</p> : null}
+        {status.connected ? (
+          <p className="text-sm text-muted-foreground">
+            Connected as <span className="font-medium text-foreground">{status.emailAddress}</span> — Pipeline
+            can send drafted outreach emails from this address.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Not connected. Connect Zoho Mail so Pipeline can actually send the drafted outreach
+              emails below, signed &quot;Andrew Thomas, Kivaro AI&quot; — sign in as
+              andrew.thomas@kivaroai.com when prompted.
+            </p>
+            <a href="/api/auth/zoho/connect" className={buttonVariants({ className: "w-fit" })}>
+              Connect Zoho Mail
+            </a>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function AutonomyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
@@ -27,6 +69,10 @@ export default function AutonomyPage() {
           The Autonomous Lead Engine — company discovery through AI-drafted outreach.
         </p>
       </div>
+
+      <Suspense fallback={<SectionSkeleton rows={2} />}>
+        <ZohoConnectionCard searchParams={searchParams} />
+      </Suspense>
 
       <Card className="glow-border-hover">
         <CardHeader className="flex flex-row items-center justify-between">

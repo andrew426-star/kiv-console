@@ -61,6 +61,11 @@ export function getIntegrationsStatus(): IntegrationStatus[] {
       description: "Investment Account on the Portfolio page — account + positions, read-only.",
     },
     {
+      name: "Zoho Mail",
+      configured: Boolean(process.env.ZOHO_CLIENT_ID),
+      description: "Pipeline's real outreach-email send capability — andrew.thomas@kivaroai.com, send-only.",
+    },
+    {
       name: "Slack",
       configured: true,
       description: "15 agents, each its own real Slack app/bot identity.",
