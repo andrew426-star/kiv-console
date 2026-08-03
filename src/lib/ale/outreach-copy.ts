@@ -19,7 +19,16 @@ export function buildOutreachEmail(params: {
     );
   }
 
-  lines.push("Worth a quick call if it's useful?", "", "Andrew", "Kivaro AI");
+  // Matches the site's own /process CTA ("Begin Discovery") rather than a
+  // generic "quick call" — Phase 1 (Discovery & Systems Audit) is the real
+  // low-commitment entry point; the $5k/month retainer only comes up after
+  // that audit actually delivers something concrete, never in cold outreach.
+  lines.push(
+    "Worth a quick discovery call to map where this fits into your workflow?",
+    "",
+    "Andrew",
+    "Kivaro AI",
+  );
   return lines.join("\n");
 }
 
