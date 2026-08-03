@@ -25,6 +25,17 @@ export async function fetchArticles(query: string, pageSize: number): Promise<Ne
 
   const params = new URLSearchParams({
     q: query,
+    // Restricts matching to title/description rather than full article
+    // body (NewsAPI's default) — confirmed live that the default full-text
+    // match was pulling in a lot of noise (celebrity/sports/unrelated
+    // stories that happened to mention a query phrase once, deep in the
+    // article) that title/description matching cuts out almost entirely.
+    searchIn: "title,description",
+    // pypi.org is indexed by NewsAPI as a "source" that floods any query
+    // containing "LLM"/"AI" with raw package-release notifications (e.g.
+    // "llm-preflight 2.4.1") — confirmed live these dominated the AI/LLM
+    // category's results before this exclusion. Not real news either way.
+    excludeDomains: "pypi.org",
     language: "en",
     sortBy: "publishedAt",
     pageSize: String(pageSize),
@@ -55,7 +66,13 @@ export async function fetchArticles(query: string, pageSize: number): Promise<Ne
 // count low and predictable regardless of how many pages/agents hit it.
 export const NEWS_CACHE_LIFE = { stale: 3600, revalidate: 14400, expire: 86400 } as const;
 
-const QUERY = "hedge fund OR fintech OR AI automation OR alternative investment";
+// Curated to what Andrew actually wants K.I.V. watching for: potential
+// market moves, AI tools/LLM updates, and shifts in hedge funds, PE, VC,
+// or the AI field generally — not a generic fintech/AI grab-bag. Kept as
+// concrete phrases NewsAPI's keyword search can actually match, not
+// abstract topic labels.
+const QUERY =
+  '"hedge fund" OR "private equity" OR "venture capital" OR "large language model" OR "generative AI" OR "Federal Reserve" OR "market volatility"';
 
 // General-purpose single feed — used by the Overview/Company pages, agent
 // tools, and the Research brief. Kept separate from the Intel Hub's
@@ -67,20 +84,40 @@ export async function getNewsFeed(): Promise<NewsArticle[]> {
   return fetchArticles(QUERY, 8);
 }
 
-// Intel Hub's categorized feeds. Real NewsAPI search terms per category —
-// "AI Assimilation in Finance" is Andrew's label for the tab, but NewsAPI
-// needs the terms reporters actually use, not that phrase verbatim.
+// Intel Hub's categorized feeds — one slot per theme Andrew named as
+// relevant to Kivaro AI: market-moving signals, AI tools/LLM updates, and
+// shifts specifically in hedge funds, private equity, venture capital, and
+// the AI field. Replaces the prior fintech/ai-automation/ai-finance mix,
+// which skewed generic (consumer fintech, vague "AI adoption") rather than
+// the market-moves/VC angle Andrew actually wants surfaced. Still 6 slots
+// — not adding to the shared 100-req/24h NewsAPI quota, just refocusing
+// what each slot searches for.
 export const NEWS_CATEGORIES = [
-  { id: "fintech", label: "Financial Tech", query: '"fintech" OR "financial technology"' },
-  { id: "ai-automation", label: "AI Automation", query: '"AI automation" OR "intelligent automation"' },
-  { id: "llms", label: "LLMs", query: '"large language model" OR LLM OR "generative AI"' },
-  { id: "hedge-funds", label: "Hedge Funds", query: '"hedge fund"' },
-  { id: "private-equity", label: "Private Equity", query: '"private equity"' },
   {
-    id: "ai-finance",
-    label: "AI Assimilation in Finance",
+    id: "market-moves",
+    label: "Market-Moving Signals",
     query:
-      '("AI adoption" AND (finance OR banking)) OR ("artificial intelligence" AND "financial services")',
+      '"Federal Reserve" OR "interest rate" OR "market selloff" OR "market rally" OR "market volatility" OR recession',
+  },
+  {
+    id: "ai-tools-llms",
+    label: "AI Tools & LLM Updates",
+    query: '"large language model" OR LLM OR "generative AI" OR "AI model release" OR "AI tool"',
+  },
+  { id: "hedge-funds", label: "Hedge Fund Shifts", query: '"hedge fund"' },
+  { id: "private-equity", label: "Private Equity Shifts", query: '"private equity"' },
+  {
+    id: "venture-capital",
+    label: "Venture Capital & AI Funding",
+    // "Series A"/"Series B" dropped — confirmed live they're too ambiguous
+    // on their own (matched TV/media "series" and unrelated contexts) even
+    // restricted to title/description.
+    query: '"venture capital" OR "VC funding" OR "startup funding" OR "AI startup"',
+  },
+  {
+    id: "ai-innovation",
+    label: "AI Field Innovation",
+    query: '"AI breakthrough" OR "AI research" OR "next-generation AI"',
   },
 ] as const satisfies readonly { id: string; label: string; query: string }[];
 

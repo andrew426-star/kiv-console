@@ -33,7 +33,8 @@ export function getIntegrationsStatus(): IntegrationStatus[] {
     {
       name: "NewsAPI",
       configured: Boolean(process.env.NEWSAPI_KEY),
-      description: "Fintech/AI news feed (general + Intel Hub's per-category feeds).",
+      description:
+        "Market-moves/AI-tools-LLM/hedge-fund-PE-VC news feed (general + Intel Hub's per-category feeds).",
     },
     {
       name: "Anthropic (Claude)",

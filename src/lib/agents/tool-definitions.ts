@@ -18,7 +18,7 @@ import { sendOutreachEmailForAgent } from "./tools/send-outreach-email";
 const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   name: "get_news_feed",
   description:
-    "Get the latest curated Fintech / AI-automation / alternative-investment news headlines Kivaro tracks.",
+    "Get the latest curated news headlines Kivaro tracks: potential market moves, AI tools/LLM updates, and shifts in hedge funds, private equity, venture capital, or the AI field.",
   parameters: { type: "OBJECT", properties: {} },
 };
 
