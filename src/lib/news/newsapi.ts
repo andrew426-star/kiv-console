@@ -19,6 +19,29 @@ export function isNewsApiConfigured(): boolean {
 // Company Dashboard's per-client news, keyed on a client name rather than
 // a fixed category — can run their own ad-hoc query through the same
 // NewsAPI plumbing without duplicating it.
+// Mainstream outlets only — Andrew's ask, matching what Intel Hub used to
+// surface before searchIn/excludeDomains tightened relevance (VentureBeat,
+// WSJ, etc.). This is a hard allowlist (NewsAPI's `domains` param), not a
+// preference — confirmed live it also fully replaces the pypi.org
+// exclusion (none of these domains are package-release feeds) and lifts
+// overall result quality further: every article now comes from a
+// recognizable outlet instead of blogs/Hacker-News-style posts.
+const MAINSTREAM_DOMAINS = [
+  "venturebeat.com",
+  "wsj.com",
+  "bloomberg.com",
+  "reuters.com",
+  "cnbc.com",
+  "techcrunch.com",
+  "businessinsider.com",
+  "ft.com",
+  "forbes.com",
+  "fortune.com",
+  "axios.com",
+  "theverge.com",
+  "marketwatch.com",
+].join(",");
+
 export async function fetchArticles(query: string, pageSize: number): Promise<NewsArticle[]> {
   const apiKey = process.env.NEWSAPI_KEY;
   if (!apiKey) return [];
@@ -31,11 +54,7 @@ export async function fetchArticles(query: string, pageSize: number): Promise<Ne
     // stories that happened to mention a query phrase once, deep in the
     // article) that title/description matching cuts out almost entirely.
     searchIn: "title,description",
-    // pypi.org is indexed by NewsAPI as a "source" that floods any query
-    // containing "LLM"/"AI" with raw package-release notifications (e.g.
-    // "llm-preflight 2.4.1") — confirmed live these dominated the AI/LLM
-    // category's results before this exclusion. Not real news either way.
-    excludeDomains: "pypi.org",
+    domains: MAINSTREAM_DOMAINS,
     language: "en",
     sortBy: "publishedAt",
     pageSize: String(pageSize),
