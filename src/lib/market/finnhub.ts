@@ -28,8 +28,17 @@ export async function getQuotesFor(symbols: { symbol: string; label: string }[])
 
   const results = await Promise.allSettled(
     symbols.map(async ({ symbol, label }) => {
+      // A slow/unresponsive Finnhub (rate limit, outage) hangs an
+      // unbounded fetch indefinitely — confirmed as a real production
+      // incident: this call sits inside "use cache" (getQuotesFor) in
+      // the shared dashboard layout's MarketTicker, so one hung fetch
+      // blocked the cache fill long enough to time out, taking down
+      // every dashboard route with USE_CACHE_TIMEOUT. A bounded timeout
+      // makes a slow symbol fail fast (and get filtered out below)
+      // instead of hanging the whole site.
       const res = await fetch(
         `${FINNHUB_BASE}/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
+        { signal: AbortSignal.timeout(8000) },
       );
       if (!res.ok) throw new Error(`Finnhub quote failed for ${symbol}: ${res.status}`);
       const data = (await res.json()) as { c: number; d: number; dp: number };
@@ -55,6 +64,7 @@ export async function quoteExists(symbol: string): Promise<boolean> {
   try {
     const res = await fetch(
       `${FINNHUB_BASE}/quote?symbol=${encodeURIComponent(symbol)}&token=${apiKey}`,
+      { signal: AbortSignal.timeout(8000) },
     );
     if (!res.ok) return false;
     const data = (await res.json()) as { c: number };

@@ -61,7 +61,13 @@ export async function fetchArticles(query: string, pageSize: number): Promise<Ne
     apiKey,
   });
 
-  const res = await fetch(`https://newsapi.org/v2/everything?${params.toString()}`);
+  // Same class of bug just found and fixed in finnhub.ts: an unbounded
+  // fetch inside a "use cache" function can hang the whole cache fill
+  // (USE_CACHE_TIMEOUT) if the upstream API goes slow/unresponsive rather
+  // than returning a fast error.
+  const res = await fetch(`https://newsapi.org/v2/everything?${params.toString()}`, {
+    signal: AbortSignal.timeout(8000),
+  });
   if (!res.ok) return [];
 
   const data = (await res.json()) as {

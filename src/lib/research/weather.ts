@@ -38,6 +38,12 @@ export async function getWeatherSnapshot(): Promise<WeatherSnapshot | null> {
       // wttr.in serves plain-text ASCII art to unrecognized clients unless
       // the UA looks like curl — this is the documented way to force JSON.
       headers: { "User-Agent": "curl/8.0" },
+      // Same class of bug just found and fixed in finnhub.ts: an unbounded
+      // fetch inside a "use cache" function can hang the whole cache fill
+      // (USE_CACHE_TIMEOUT) if the upstream API goes slow rather than
+      // returning a fast error. The try/catch below already handles the
+      // resulting AbortError gracefully.
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;
 
