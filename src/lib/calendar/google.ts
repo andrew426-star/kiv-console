@@ -5,6 +5,15 @@ const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 // same OAuth grant for Sheets/Docs/Drive/Gmail rather than a separate
 // service account, so it needs a broader scope set:
 // - calendar.readonly: existing Calendar module
+// - calendar.events: write access to create/update events — needed for
+//   Pipeline's automatic follow-up-call scheduling (insertCalendarEvent
+//   below). Deliberately the narrower calendar.events scope, not full
+//   calendar, which would also grant calendar (not just event)
+//   management rights this app never needs. Adding this scope means the
+//   existing calendar_connections row needs re-consent (re-run
+//   /api/auth/google/connect) before event creation will work — the
+//   already-set prompt=consent below ensures a fresh refresh token comes
+//   back with the new scope on that next connect.
 // - userinfo.email: so /oauth2/v2/userinfo can tell us which account
 //   connected (shown in the UI) — without it, that call 401s even with an
 //   otherwise-valid token
@@ -24,6 +33,7 @@ const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 //   gmail.readonly (full body access), since a preview never needs that.
 const CALENDAR_SCOPE = [
   "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/spreadsheets",
   "https://www.googleapis.com/auth/documents",
@@ -137,4 +147,38 @@ export async function fetchUpcomingEvents(
     allDay: !item.start.dateTime,
     htmlLink: item.htmlLink,
   }));
+}
+
+export type InsertCalendarEventInput = {
+  summary: string;
+  description: string;
+  startISO: string;
+  endISO: string;
+  timeZone: string;
+};
+
+export type InsertedCalendarEvent = { id: string; htmlLink: string };
+
+// Creates a real event on the connected account's primary calendar.
+// Requires the calendar.events scope above — if the connection was
+// granted before that scope was added, Google returns 403
+// insufficientPermissions and this throws, same as every other Google API
+// wrapper in this file (no silent failure).
+export async function insertCalendarEvent(
+  accessToken: string,
+  event: InsertCalendarEventInput,
+): Promise<InsertedCalendarEvent> {
+  const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      summary: event.summary,
+      description: event.description,
+      start: { dateTime: event.startISO, timeZone: event.timeZone },
+      end: { dateTime: event.endISO, timeZone: event.timeZone },
+    }),
+  });
+  if (!res.ok) throw new Error(`Google Calendar event creation failed: ${await res.text()}`);
+  const data = (await res.json()) as { id: string; htmlLink: string };
+  return { id: data.id, htmlLink: data.htmlLink };
 }

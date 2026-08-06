@@ -119,8 +119,12 @@ export async function LeadsTable() {
                   </TableCell>
                   <TableCell>
                     {lead.pitched ? (
-                      <Badge variant="outline" className="border-kv-mint/40 text-kv-mint">
+                      <Badge variant="outline" className="border-primary/50 text-primary">
                         Pitched
+                      </Badge>
+                    ) : lead.pitchCreated ? (
+                      <Badge variant="outline" className="border-kv-mint/40 text-kv-mint">
+                        Pitch Created
                       </Badge>
                     ) : lead.researched ? (
                       <PitchButton placeId={lead.placeId} />

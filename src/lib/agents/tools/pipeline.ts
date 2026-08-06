@@ -1,7 +1,10 @@
 import { getLeads as getAleLeads } from "@/lib/ale/queries";
 import { getClients } from "@/lib/company/queries";
 
-type ProspectStage = "discovered" | "researched" | "pitched";
+// "pitch_created" = a draft exists in the ALE Sales Pitch Log but hasn't
+// been sent yet. "pitched" is reserved for a confirmed send — never use it
+// to describe a company that only has a draft on file.
+type ProspectStage = "discovered" | "researched" | "pitch_created" | "pitched";
 
 export type PipelineStatusForAgent = {
   prospects:
@@ -11,6 +14,7 @@ export type PipelineStatusForAgent = {
         connected: true;
         total: number;
         researched: number;
+        pitchCreated: number;
         pitched: number;
         companies: Array<{ name: string; stage: ProspectStage }>;
       };
@@ -43,10 +47,17 @@ export async function getPipelineStatusForAgent(): Promise<PipelineStatusForAgen
           connected: true,
           total: aleResult.leads.length,
           researched: aleResult.leads.filter((l) => l.researched).length,
+          pitchCreated: aleResult.leads.filter((l) => l.pitchCreated).length,
           pitched: aleResult.leads.filter((l) => l.pitched).length,
           companies: aleResult.leads.slice(0, MAX_COMPANIES_LISTED).map((l) => ({
             name: l.name,
-            stage: l.pitched ? "pitched" : l.researched ? "researched" : "discovered",
+            stage: l.pitched
+              ? "pitched"
+              : l.pitchCreated
+                ? "pitch_created"
+                : l.researched
+                  ? "researched"
+                  : "discovered",
           })),
         };
 

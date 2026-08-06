@@ -32,10 +32,14 @@ export async function getPendingLeads(accessToken: string): Promise<PendingLead[
   ]);
 
   const websiteByPlaceId = new Map(websiteRows.map((r) => [r[2], r[1]]));
-  const pitched = new Set(pitchedRows.map((r) => r[0]));
+  // A draft already existing (regardless of send status) is what keeps a
+  // lead out of the backlog — re-drafting an already-drafted pitch would
+  // be the bug here, not re-sending (sending is a separate, explicit
+  // action gated by its own duplicate-send guard).
+  const alreadyHasDraft = new Set(pitchedRows.map((r) => r[0]));
 
   return mapsRows
-    .filter((r) => !pitched.has(r[0]))
+    .filter((r) => !alreadyHasDraft.has(r[0]))
     .map((r) => ({
       placeId: r[1] ?? "",
       name: r[0] ?? "",

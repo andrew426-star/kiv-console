@@ -5,11 +5,14 @@ import { getLeads, type Lead } from "@/lib/ale/queries";
 function StageCounts({ leads }: { leads: Lead[] }) {
   const total = leads.length;
   const researched = leads.filter((l) => l.researched).length;
+  // Drafted, not yet sent (or sent, per pitchCreated's definition, which
+  // stays true once a draft exists regardless of send status).
+  const pitchCreated = leads.filter((l) => l.pitchCreated).length;
   const pitched = leads.filter((l) => l.pitched).length;
-  const pending = total - pitched;
+  const pending = total - pitchCreated;
 
   return (
-    <div className="grid grid-cols-4 gap-3">
+    <div className="grid grid-cols-5 gap-3">
       <div>
         <p className="text-xs text-muted-foreground">Discovered</p>
         <p className="font-heading text-xl font-bold">{total}</p>
@@ -17,6 +20,10 @@ function StageCounts({ leads }: { leads: Lead[] }) {
       <div>
         <p className="text-xs text-muted-foreground">Researched</p>
         <p className="font-heading text-xl font-bold">{researched}</p>
+      </div>
+      <div>
+        <p className="text-xs text-muted-foreground">Pitch Created</p>
+        <p className="font-heading text-xl font-bold">{pitchCreated}</p>
       </div>
       <div>
         <p className="text-xs text-muted-foreground">Pitched</p>

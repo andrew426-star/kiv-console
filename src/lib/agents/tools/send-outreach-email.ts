@@ -2,9 +2,16 @@ import { getWorkspaceAccessToken } from "@/lib/google/access-token";
 import { getRows, updateRange } from "@/lib/google/sheets";
 import { getZohoAccessToken } from "@/lib/zoho/access-token";
 import { sendZohoEmail } from "@/lib/zoho/mail";
-import { getContactForCompany } from "@/lib/ale/queries";
+import { getContactForCompany, getLeads } from "@/lib/ale/queries";
 import { parseOutreachEmailForSend } from "@/lib/ale/outreach-copy";
-import { SALES_PITCH_LOG_SPREADSHEET_ID, SALES_PITCH_LOG_TAB } from "@/lib/ale/spreadsheets";
+import { scheduleFollowUpCall } from "@/lib/ale/follow-up-call";
+import {
+  SALES_PITCH_LOG_SPREADSHEET_ID,
+  SALES_PITCH_LOG_TAB,
+  OUTREACH_EMAIL_COL,
+  EMAIL_SENT_AT_COL,
+  EMAIL_SENT_AT_COLUMN_LETTER,
+} from "@/lib/ale/spreadsheets";
 import { logAgentActivity } from "@/lib/agents/log";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -16,14 +23,19 @@ export type SendOutreachEmailResult =
   | { status: "no_contact_email"; companyName: string }
   | { status: "already_sent"; companyName: string; sentAt: string }
   | { status: "rate_limited"; companyName: string }
-  | { status: "sent"; companyName: string; to: string; subject: string; sentAt: string };
-
-// Column indices into SALES_PITCH_LOG_HEADER — keep in sync with
-// src/lib/ale/spreadsheets.ts. getRows returns rows starting at sheet row
-// 2 (header excluded), so a row at array index i is sheet row i + 2.
-const OUTREACH_EMAIL_COL = 9;
-const EMAIL_SENT_AT_COL = 11;
-const EMAIL_SENT_AT_COLUMN_LETTER = "L";
+  | {
+      status: "sent";
+      companyName: string;
+      to: string;
+      subject: string;
+      sentAt: string;
+      // Set only if the email sent fine but the automatic follow-up-call
+      // reminder failed to schedule — the send itself is never blocked or
+      // retried over this, so callers must report it as a distinct,
+      // smaller problem rather than folding it into "sent" as if nothing
+      // went wrong.
+      followUpCallWarning?: string;
+    };
 
 const SEND_LOG_ACTION = "Sent outreach email";
 const MAX_SENDS_PER_HOUR = 5;
@@ -122,5 +134,78 @@ export async function sendOutreachEmailForAgent(companyName: string): Promise<Se
     detail: `${companyName} -> ${contact.email}`,
   }).catch(() => {});
 
-  return { status: "sent", companyName, to: contact.email, subject, sentAt };
+  // The email is sent and recorded — everything from here on is a real
+  // but non-blocking enhancement. A failure scheduling the follow-up call
+  // must never read as the send having failed.
+  let followUpCallWarning: string | undefined;
+  try {
+    await scheduleFollowUpCall(
+      workspaceToken,
+      companyName,
+      contact,
+      { subject, body },
+      new Date(sentAt),
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    followUpCallWarning = `Follow-up call reminder was NOT scheduled: ${message}`;
+    await logAgentActivity({
+      agentId: "pipeline",
+      action: "Follow-up call scheduling failed",
+      status: "warning",
+      detail: `${companyName}: ${message}`,
+    }).catch(() => {});
+  }
+
+  return {
+    status: "sent",
+    companyName,
+    to: contact.email,
+    subject,
+    sentAt,
+    ...(followUpCallWarning ? { followUpCallWarning } : {}),
+  };
+}
+
+// Sends outreach to several companies in one operation, reusing
+// sendOutreachEmailForAgent() (and therefore every one of its guardrails —
+// duplicate-send check, draft/contact checks, and the shared hourly rate
+// limit) per company rather than duplicating any send logic here. Once the
+// rate limit is hit, remaining companies are reported as not attempted
+// rather than burning further calls that would all just rate-limit too.
+export type BulkSendSummary = {
+  attempted: Array<{ companyName: string; result: SendOutreachEmailResult }>;
+  notAttempted: string[];
+};
+
+// Omit companyNames (or pass an empty array) to target every company that
+// has a drafted-but-unsent pitch and a real contact email on file — "send
+// the whole eligible backlog" rather than requiring each name spelled out.
+export async function sendBulkOutreachEmailsForAgent(
+  companyNames?: string[],
+): Promise<BulkSendSummary> {
+  let targets = companyNames?.filter((n) => n.trim().length > 0) ?? [];
+
+  if (targets.length === 0) {
+    const leadsResult = await getLeads();
+    if (leadsResult.connected && "leads" in leadsResult) {
+      targets = leadsResult.leads.filter((l) => l.pitchCreated && !l.pitched).map((l) => l.name);
+    }
+  }
+
+  const attempted: BulkSendSummary["attempted"] = [];
+  const notAttempted: string[] = [];
+
+  for (let i = 0; i < targets.length; i++) {
+    const companyName = targets[i];
+    const result = await sendOutreachEmailForAgent(companyName);
+    attempted.push({ companyName, result });
+
+    if (result.status === "rate_limited") {
+      notAttempted.push(...targets.slice(i + 1));
+      break;
+    }
+  }
+
+  return { attempted, notAttempted };
 }

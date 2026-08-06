@@ -10,6 +10,7 @@ import {
   CONTACTS_TAB,
   SALES_PITCH_LOG_SPREADSHEET_ID,
   SALES_PITCH_LOG_TAB,
+  EMAIL_SENT_AT_COL,
 } from "./spreadsheets";
 
 export type Lead = {
@@ -22,7 +23,16 @@ export type Lead = {
   website: string | null;
   contactCount: number;
   researched: boolean;
+  // A drafted pitch exists in the ALE Sales Pitch Log — NOT the same as
+  // having been sent. Kept distinct from `pitched` below because the two
+  // used to be conflated (a company showed as "Pitched" the moment a
+  // draft was generated, before any email had actually gone out).
+  pitchCreated: boolean;
+  // True only once the drafted email has actually been sent and
+  // confirmed — i.e. the Sales Pitch Log row's "Email Sent At" cell is
+  // populated. This is the real, honest "Pitched" signal.
   pitched: boolean;
+  pitchSentAt: string | null;
 };
 
 export type LeadsResult =
@@ -76,8 +86,9 @@ export async function getLeads(): Promise<LeadsResult> {
     }
 
     const researched = new Set(researchedPlaceIds);
-    // Last write wins per company (in case of a re-pitch) — only used below
-    // to check whether a pitch exists at all.
+    // Last write wins per company (in case of a re-pitch) — used below both
+    // to check whether a draft exists at all, and (via column 11, "Email
+    // Sent At") whether it was actually sent.
     const latestPitchByName = new Map<string, string[]>();
     for (const row of pitchLogRows) {
       if (row[0]) latestPitchByName.set(row[0], row);
@@ -85,20 +96,26 @@ export async function getLeads(): Promise<LeadsResult> {
 
     // Maps Data columns: name, place_id, types, rating, address, latitude, longitude, state
     const leads = mapsRows
-      .map((r) => ({
-        name: r[0] ?? "",
-        placeId: r[1] ?? "",
-        types: r[2] ?? "",
-        rating: r[3] ?? "",
-        address: r[4] ?? "",
-        state: r[7] ?? "",
-        website: websiteByPlaceId.get(r[1]) ?? null,
-        contactCount: contactCountByPlaceId.get(r[1]) ?? 0,
-        // Companies/Sales Pitch Log tabs have no place_id column (pre-existing
-        // schema) — both keyed by Company Name instead.
-        researched: researched.has(r[0]),
-        pitched: latestPitchByName.has(r[0]),
-      }))
+      .map((r) => {
+        const pitchRow = latestPitchByName.get(r[0]);
+        const sentAt = pitchRow?.[EMAIL_SENT_AT_COL] || null;
+        return {
+          name: r[0] ?? "",
+          placeId: r[1] ?? "",
+          types: r[2] ?? "",
+          rating: r[3] ?? "",
+          address: r[4] ?? "",
+          state: r[7] ?? "",
+          website: websiteByPlaceId.get(r[1]) ?? null,
+          contactCount: contactCountByPlaceId.get(r[1]) ?? 0,
+          // Companies/Sales Pitch Log tabs have no place_id column (pre-existing
+          // schema) — both keyed by Company Name instead.
+          researched: researched.has(r[0]),
+          pitchCreated: !!pitchRow,
+          pitched: !!sentAt,
+          pitchSentAt: sentAt,
+        };
+      })
       .reverse();
 
     return { connected: true, leads };
@@ -111,7 +128,17 @@ export async function getLeads(): Promise<LeadsResult> {
   }
 }
 
-export type OutreachContact = { name: string; email: string; title: string };
+export type OutreachContact = {
+  name: string;
+  email: string;
+  title: string;
+  // Both pulled from the same Contacts row as name/email — present on most
+  // rows but not guaranteed (Stage 2 research doesn't always turn up a
+  // phone number), so callers must handle null rather than assume either
+  // is populated.
+  phone: string | null;
+  website: string | null;
+};
 
 // Stage 2's curated per-company contact list — always populated before a
 // pitch can exist, since generateSalesPitch() requires a Companies entry
@@ -131,5 +158,13 @@ export async function getContactForCompany(
   const match = rows.find(
     (r) => r[0]?.toLowerCase() === companyName.toLowerCase() && r[5]?.trim() && r[7]?.trim(),
   );
-  return match ? { name: match[5], email: match[7], title: match[6] ?? "" } : null;
+  return match
+    ? {
+        name: match[5],
+        email: match[7],
+        title: match[6] ?? "",
+        phone: match[3]?.trim() || null,
+        website: match[1]?.trim() || null,
+      }
+    : null;
 }

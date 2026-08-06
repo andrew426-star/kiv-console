@@ -13,7 +13,7 @@ import { getPipelineStatusForAgent } from "./tools/pipeline";
 import { generateShowcaseForAgent } from "./tools/showcase";
 import { createGithubIssue } from "./tools/github";
 import { getSearchConsoleStatsForAgent } from "./tools/search-console";
-import { sendOutreachEmailForAgent } from "./tools/send-outreach-email";
+import { sendOutreachEmailForAgent, sendBulkOutreachEmailsForAgent } from "./tools/send-outreach-email";
 
 const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   name: "get_news_feed",
@@ -128,7 +128,7 @@ const CREATE_GITHUB_ISSUE_DECL: GeminiFunctionDeclaration = {
 const PIPELINE_STATUS_DECL: GeminiFunctionDeclaration = {
   name: "get_pipeline_status",
   description:
-    "Get Kivaro's current prospect and client listings — which companies are at what stage in the outreach process. Covers the Autonomous Lead Engine's automated pipeline (discovered, researched, or pitched) and existing clients with their status (active, paused, completed).",
+    "Get Kivaro's current prospect and client listings — which companies are at what stage in the outreach process. Covers the Autonomous Lead Engine's automated pipeline (discovered, researched, pitch_created, or pitched) and existing clients with their status (active, paused, completed). pitch_created means an outreach draft exists but has NOT been sent; pitched means the email was actually sent and confirmed — never treat these as interchangeable.",
   parameters: { type: "OBJECT", properties: {} },
 };
 
@@ -142,7 +142,7 @@ const SEARCH_CONSOLE_DECL: GeminiFunctionDeclaration = {
 const SEND_OUTREACH_EMAIL_DECL: GeminiFunctionDeclaration = {
   name: "send_outreach_email",
   description:
-    "Send the already-drafted Outreach Email for a company in the ALE Sales Pitch Log, verbatim, to that company's curated contact email, signed 'Andrew Thomas, Kivaro AI'. This is REAL — a real email leaves andrew.thomas@kivaroai.com and reaches a real person, irreversibly. Only works for a company with both a drafted Outreach Email and a real contact email already on file. Refuses (rather than resending) if this company was already sent to.",
+    "Send the already-drafted Outreach Email for a company in the ALE Sales Pitch Log, verbatim, to that company's curated contact email, signed 'Andrew Thomas, Kivaro AI'. This is REAL — a real email leaves andrew.thomas@kivaroai.com and reaches a real person, irreversibly. Only works for a company with both a drafted Outreach Email and a real contact email already on file. Refuses (rather than resending) if this company was already sent to. On a successful send, a real follow-up-call reminder is automatically created on Andrew's Google Calendar two business days out, with the company's website, phone number, and the sent pitch in the event description.",
   parameters: {
     type: "OBJECT",
     properties: {
@@ -152,6 +152,23 @@ const SEND_OUTREACH_EMAIL_DECL: GeminiFunctionDeclaration = {
       },
     },
     required: ["companyName"],
+  },
+};
+
+const SEND_BULK_OUTREACH_EMAILS_DECL: GeminiFunctionDeclaration = {
+  name: "send_bulk_outreach_emails",
+  description:
+    "Send outreach emails to MULTIPLE companies in one operation — same real, irreversible send as send_outreach_email, looped per company with all the same guardrails (duplicate-send check, requires a drafted email and a real contact, and the shared hourly send-rate limit, which applies across ALL sends combined, single or bulk). Pass an explicit list of company names for a named batch, or omit companyNames entirely to target every company that currently has a drafted-but-unsent pitch and a real contact email on file. Once the hourly limit is hit mid-batch, remaining companies are reported as not attempted rather than being skipped silently — report that back plainly, don't imply the whole batch went out.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      companyNames: {
+        type: "ARRAY",
+        items: { type: "STRING" },
+        description:
+          "Exact company names as they appear in the ALE Sales Pitch Log. Omit (or pass an empty array) to send to every eligible drafted-but-unsent company instead of naming them individually.",
+      },
+    },
   },
 };
 
@@ -179,6 +196,12 @@ const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknow
     createGithubIssue(String(args.title ?? ""), String(args.body ?? "")),
   get_search_console_stats: async () => getSearchConsoleStatsForAgent(),
   send_outreach_email: async (args) => sendOutreachEmailForAgent(String(args.companyName ?? "")),
+  send_bulk_outreach_emails: async (args) => {
+    const companyNames = Array.isArray(args.companyNames)
+      ? (args.companyNames as unknown[]).map(String)
+      : undefined;
+    return sendBulkOutreachEmailsForAgent(companyNames);
+  },
 };
 
 export async function dispatchTool(name: string, args: Record<string, unknown>): Promise<unknown> {
@@ -229,7 +252,7 @@ export function getToolsForAgent(agentId: string): GeminiTool[] {
       case "canvas":
         return [SEARCH_CONSOLE_DECL];
       case "pipeline":
-        return [SEND_OUTREACH_EMAIL_DECL];
+        return [SEND_OUTREACH_EMAIL_DECL, SEND_BULK_OUTREACH_EMAILS_DECL];
       default:
         return [];
     }

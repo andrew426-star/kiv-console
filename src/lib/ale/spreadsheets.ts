@@ -152,3 +152,11 @@ export const SALES_PITCH_LOG_HEADER = [
   "Video URL",
   "Email Sent At",
 ];
+
+// Column indices into SALES_PITCH_LOG_HEADER above, shared by everything
+// that reads/writes a specific cell (rather than each call site
+// hand-deriving the same numbers) — getRows() returns rows starting at
+// sheet row 2 (header excluded), so array index i is sheet row i + 2.
+export const OUTREACH_EMAIL_COL = 9;
+export const EMAIL_SENT_AT_COL = 11;
+export const EMAIL_SENT_AT_COLUMN_LETTER = "L";
