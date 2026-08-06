@@ -11,12 +11,16 @@ type PlaceResult = {
   rating?: number;
   userRatingCount?: number;
   location?: { latitude: number; longitude: number };
-  addressComponents?: Array<{ shortText: string; longText: string; types: string[] }>;
+  addressComponents?: Array<{ shortText: string; longText: string; types?: string[] }>;
 };
 
 function extractState(place: PlaceResult): string {
+  // Google's Places API doesn't always populate `types` on every address
+  // component — confirmed via a real production crash on a dense NYC
+  // result set (TypeError: Cannot read properties of undefined (reading
+  // 'includes')) that a smaller/simpler market's results never triggered.
   const component = place.addressComponents?.find((c) =>
-    c.types.includes("administrative_area_level_1"),
+    c.types?.includes("administrative_area_level_1"),
   );
   return component?.shortText ?? "";
 }
