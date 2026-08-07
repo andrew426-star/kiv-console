@@ -14,6 +14,11 @@ import { generateShowcaseForAgent } from "./tools/showcase";
 import { createGithubIssue } from "./tools/github";
 import { getSearchConsoleStatsForAgent } from "./tools/search-console";
 import { sendOutreachEmailForAgent, sendBulkOutreachEmailsForAgent } from "./tools/send-outreach-email";
+import {
+  getMarketMoversForAgent,
+  getMarketSentimentReportForAgent,
+  getAssetHistoryForAgent,
+} from "./tools/market-movers";
 
 const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   name: "get_news_feed",
@@ -70,6 +75,51 @@ const ALPACA_PORTFOLIO_DECL: GeminiFunctionDeclaration = {
   description:
     "Get Kivaro's investment account: equity, cash, buying power, and open positions with unrealized P/L. Read-only — there is no capability to place trades.",
   parameters: { type: "OBJECT", properties: {} },
+};
+
+const MARKET_MOVERS_DECL: GeminiFunctionDeclaration = {
+  name: "get_market_movers",
+  description:
+    "Get the biggest gainers and losers across a broad, real, curated universe of Stocks, Crypto, Metals, and Futures over a period — not limited to Kivaro's watchlist. Default period is the last 7 days. Metals and Futures have no raw spot/contract price feed available on this account's data plan; they're represented by real, heavily-traded tracking ETFs (e.g. GLD for gold, USO for crude oil) — every one of those labels ends in '(... ETF proxy)'. Never present an ETF-proxy result as a literal spot or futures-contract price — always call it out as a proxy when discussing Metals or Futures.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      periodDays: { type: "NUMBER", description: "Lookback window in days. Default 7 (one week)." },
+      assetClasses: {
+        type: "ARRAY",
+        items: { type: "STRING", format: "enum", enum: ["stocks", "crypto", "metals", "futures"] },
+        description: "Which asset classes to include. Omit for all four.",
+      },
+      limit: { type: "NUMBER", description: "How many top gainers and top losers to return. Default 10." },
+    },
+  },
+};
+
+const MARKET_SENTIMENT_DECL: GeminiFunctionDeclaration = {
+  name: "get_market_sentiment_report",
+  description:
+    "Get a real market-sentiment snapshot for the last 7 days across the same Stocks/Crypto/Metals/Futures universe as get_market_movers: breadth (how many tracked assets are up vs. down, and the average move), the current top gainers/losers, and recent real market-moving news headlines. This returns real underlying data only, never a pre-written sentiment verdict — read the breadth/headlines yourself and write the actual sentiment summary in your own reply.",
+  parameters: { type: "OBJECT", properties: {} },
+};
+
+const ASSET_HISTORY_DECL: GeminiFunctionDeclaration = {
+  name: "get_asset_price_history",
+  description:
+    "Get real recent daily closing prices for one specific symbol (a stock/ETF ticker like 'AAPL', or a crypto pair like 'BTC/USD'), to ground any commentary or entry/exit read on that specific asset in real recent price action rather than a guess.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      symbol: { type: "STRING", description: "Ticker symbol, e.g. 'AAPL' or 'BTC/USD'." },
+      assetClass: {
+        type: "STRING",
+        format: "enum",
+        enum: ["stocks", "crypto", "metals", "futures"],
+        description: "Optional — inferred from the symbol format if omitted (a '/' in the symbol implies crypto).",
+      },
+      days: { type: "NUMBER", description: "Lookback window in days. Default 14." },
+    },
+    required: ["symbol"],
+  },
 };
 
 const COMPANY_DRIVE_DECL: GeminiFunctionDeclaration = {
@@ -188,6 +238,19 @@ const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknow
   get_company_stats: async () => getCompanyStatsForAgent(),
   get_stripe_financials: async () => getStripeFinancials(),
   get_alpaca_portfolio: async () => getAlpacaPortfolio(),
+  get_market_movers: async (args) =>
+    getMarketMoversForAgent({
+      periodDays: typeof args.periodDays === "number" ? args.periodDays : undefined,
+      assetClasses: args.assetClasses,
+      limit: typeof args.limit === "number" ? args.limit : undefined,
+    }),
+  get_market_sentiment_report: async () => getMarketSentimentReportForAgent(),
+  get_asset_price_history: async (args) =>
+    getAssetHistoryForAgent({
+      symbol: String(args.symbol ?? ""),
+      assetClass: typeof args.assetClass === "string" ? args.assetClass : undefined,
+      days: typeof args.days === "number" ? args.days : undefined,
+    }),
   search_company_drive: async (args) => searchCompanyDriveForAgent(String(args.query ?? "")),
   get_integrations_status: async () => getIntegrationsStatus(),
   get_pipeline_status: async () => getPipelineStatusForAgent(),
@@ -243,7 +306,14 @@ export function getToolsForAgent(agentId: string): GeminiTool[] {
       case "ledger":
         return [COMPANY_STATS_DECL, STRIPE_FINANCIALS_DECL];
       case "ticker":
-        return [MARKET_QUOTES_DECL, WATCHLIST_DECL, ALPACA_PORTFOLIO_DECL];
+        return [
+          MARKET_QUOTES_DECL,
+          WATCHLIST_DECL,
+          ALPACA_PORTFOLIO_DECL,
+          MARKET_MOVERS_DECL,
+          MARKET_SENTIMENT_DECL,
+          ASSET_HISTORY_DECL,
+        ];
       case "chronicle":
         return [CALENDAR_DECL, COMPANY_STATS_DECL, COMPANY_DRIVE_DECL];
       case "nexus":

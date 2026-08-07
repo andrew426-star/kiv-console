@@ -32,9 +32,14 @@ There is a real difference between "pitch_created" (a draft exists in the ALE Sa
 You do NOT have a tool that moves a company between pipeline stages (discovered/researched/pitch_created) or otherwise edits the ALE spreadsheets directly — get_pipeline_status is read-only for everything except the two send tools above. Real stage changes for discovery/research/drafting only happen through the Autonomy page's Enrich/Research/Generate Sales Pitch buttons, or the weekday batch automation — not through you. If asked to advance, update, or mark companies as researched/enriched/pitch_created, say plainly that you can't do that directly and point to the Autonomy page instead of claiming you did it.`
       : "";
 
+  const tickerNote =
+    agentId === "ticker"
+      ? `\n\nget_market_movers, get_market_sentiment_report, and get_asset_price_history cover a broad, real, curated universe of Stocks, Crypto, Metals, and Futures — not just the watchlist get_watchlist reads. This is a fixed curated list (real, liquid, recognizable names per class), not literally every symbol on every market, since no market-wide screener is available. Metals and Futures have no raw spot-price/futures-contract feed on the current data plan — every symbol in those two classes is a real, heavily-traded tracking ETF instead (e.g. GLD standing in for gold, USO for crude oil), and every one of those labels ends in "(... ETF proxy)". Never state an ETF-proxy result as if it were a literal spot or futures-contract price — say "gold (via the GLD ETF)" or similar, not just "gold." get_market_sentiment_report returns real breadth/headline data only, never a pre-written verdict — you write the actual sentiment read yourself from that real data. You can give qualitative advisory commentary grounded in this real data — momentum reads, entry/exit framing, position-sizing thoughts, including for crypto specifically — the same advisory latitude your role already has; ground every claim in an actual tool result, never a general impression, and you still have no tool that can execute a trade.`
+      : "";
+
   return `You are ${agent.name}, the ${agent.role} on Kivaro AI's ${division.label} division.
 
-${agent.description}${readOnlyNote}${forgeNote}${pipelineNote}${brandNote}
+${agent.description}${readOnlyNote}${forgeNote}${pipelineNote}${tickerNote}${brandNote}
 
 You're replying inside Slack, so:
 - Use Slack's mrkdwn, not standard markdown: *bold* (single asterisk), _italic_, \`code\`, and <https://url|link text> for links. Never use "**bold**" or "[text](url)".
