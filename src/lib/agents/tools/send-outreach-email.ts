@@ -2,13 +2,21 @@ import { getWorkspaceAccessToken } from "@/lib/google/access-token";
 import { getRows, updateRange } from "@/lib/google/sheets";
 import { getZohoAccessToken } from "@/lib/zoho/access-token";
 import { sendZohoEmail } from "@/lib/zoho/mail";
-import { getContactForCompany, getLeads } from "@/lib/ale/queries";
-import { parseOutreachEmailForSend } from "@/lib/ale/outreach-copy";
+import { getLeads, listContactsForCompany } from "@/lib/ale/queries";
+import { buildOutreachEmail, parseOutreachEmailForSend } from "@/lib/ale/outreach-copy";
 import { scheduleFollowUpCall } from "@/lib/ale/follow-up-call";
+import {
+  queueCompaniesForOutreach,
+  OUTREACH_DRIP_PER_RUN,
+  OUTREACH_DRIP_CADENCE,
+  SEND_SPACING_MS,
+} from "@/lib/ale/outreach-queue";
 import {
   SALES_PITCH_LOG_SPREADSHEET_ID,
   SALES_PITCH_LOG_TAB,
+  EMAIL_VARIATION_COL,
   OUTREACH_EMAIL_COL,
+  VIDEO_URL_COL,
   EMAIL_SENT_AT_COL,
   EMAIL_SENT_AT_COLUMN_LETTER,
 } from "@/lib/ale/spreadsheets";
@@ -22,13 +30,24 @@ export type SendOutreachEmailResult =
   | { status: "no_draft_email"; companyName: string }
   | { status: "no_contact_email"; companyName: string }
   | { status: "already_sent"; companyName: string; sentAt: string }
-  | { status: "rate_limited"; companyName: string }
+  // `slotFreesAt` is when the hourly allowance next frees up a slot, so a
+  // caller can say when this will actually go out instead of just "later".
+  | { status: "rate_limited"; companyName: string; slotFreesAt: string | null }
   | {
       status: "sent";
       companyName: string;
       to: string;
       subject: string;
       sentAt: string;
+      // Who it went to and why — the Contacts tab often lists several
+      // people per company and outreach picks the most senior (rank 1 =
+      // most senior). Reported so Pipeline can name the target and the
+      // ones it passed over rather than sending blind.
+      contactName: string;
+      contactTitle: string;
+      seniorityLabel: string;
+      moreSeniorAlternatives: number;
+      otherContactsOnFile: number;
       // Set only if the email sent fine but the automatic follow-up-call
       // reminder failed to schedule — the send itself is never blocked or
       // retried over this, so callers must report it as a distinct,
@@ -39,19 +58,45 @@ export type SendOutreachEmailResult =
 
 const SEND_LOG_ACTION = "Sent outreach email";
 const MAX_SENDS_PER_HOUR = 5;
+const HOUR_MS = 60 * 60 * 1000;
 
-async function recentSendCount(): Promise<number> {
+export type SendWindow = {
+  used: number;
+  remaining: number;
+  limitPerHour: number;
+  // When the oldest send in the current window ages out and a slot frees
+  // up. Null only when nothing has been sent in the last hour (i.e. the
+  // full allowance is already available). This is a *rolling* window, not
+  // a clock hour: slots come back one at a time, an hour after each send.
+  slotFreesAt: string | null;
+};
+
+// Replaces a bare count so callers can report *when* sending resumes
+// rather than only that it stopped — the difference between "24 companies
+// not attempted" and "24 queued, next 4 go out at 12:20 PM".
+async function getSendWindow(): Promise<SendWindow> {
   const admin = createAdminClient();
-  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const { count } = await admin
+  const oneHourAgo = new Date(Date.now() - HOUR_MS).toISOString();
+  const { data } = await admin
     .from("agent_activity_log")
-    .select("*", { count: "exact", head: true })
+    .select("created_at")
     .eq("agent_id", "pipeline")
     .eq("action", SEND_LOG_ACTION)
     .eq("status", "success")
-    .gte("created_at", oneHourAgo);
-  return count ?? 0;
+    .gte("created_at", oneHourAgo)
+    .order("created_at", { ascending: true });
+
+  const sends = data ?? [];
+  const oldest = sends[0]?.created_at as string | undefined;
+  return {
+    used: sends.length,
+    remaining: Math.max(0, MAX_SENDS_PER_HOUR - sends.length),
+    limitPerHour: MAX_SENDS_PER_HOUR,
+    slotFreesAt: oldest ? new Date(new Date(oldest).getTime() + HOUR_MS).toISOString() : null,
+  };
 }
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 // Pipeline's real, live, irreversible send capability — sends the
 // already-drafted Outreach Email verbatim (only the subject/signature are
@@ -71,14 +116,34 @@ export async function sendOutreachEmailForAgent(companyName: string): Promise<Se
   const alreadySentAt = row[EMAIL_SENT_AT_COL];
   if (alreadySentAt) return { status: "already_sent", companyName, sentAt: alreadySentAt };
 
-  const draftEmail = row[OUTREACH_EMAIL_COL];
+  // The "Email Variation" is the source of truth for what goes out: it's
+  // the full-length pitch email, and it's rendered send-ready here rather
+  // than read from the stored "Outreach Email" cell. That matters for the
+  // rows drafted before this change — their "Outreach Email" cell still
+  // holds the old short "quick idea" template, which must never be sent
+  // again, while their Email Variation is the long one Andrew wants used.
+  // The stored cell stays as the fallback for any row that somehow has no
+  // variation on file.
+  const emailVariation = row[EMAIL_VARIATION_COL]?.trim();
+  const draftEmail = emailVariation
+    ? buildOutreachEmail({
+        companyName,
+        emailVariation,
+        videoLink: row[VIDEO_URL_COL]?.trim() || undefined,
+      })
+    : row[OUTREACH_EMAIL_COL];
   if (!draftEmail?.trim()) return { status: "no_draft_email", companyName };
 
-  const contact = await getContactForCompany(workspaceToken, companyName);
+  // Ranked most-senior-first; [0] is who this goes to. The rest are only
+  // counted, so the result can say what it passed over without dumping
+  // every colleague's address into the agent transcript.
+  const contacts = await listContactsForCompany(workspaceToken, companyName);
+  const contact = contacts[0];
   if (!contact) return { status: "no_contact_email", companyName };
 
-  if ((await recentSendCount()) >= MAX_SENDS_PER_HOUR) {
-    return { status: "rate_limited", companyName };
+  const window = await getSendWindow();
+  if (window.remaining <= 0) {
+    return { status: "rate_limited", companyName, slotFreesAt: window.slotFreesAt };
   }
 
   const zoho = await getZohoAccessToken();
@@ -163,19 +228,43 @@ export async function sendOutreachEmailForAgent(companyName: string): Promise<Se
     to: contact.email,
     subject,
     sentAt,
+    contactName: contact.name,
+    contactTitle: contact.title,
+    seniorityLabel: contact.seniorityLabel,
+    // Always 0 by construction (contacts is sorted most-senior-first) —
+    // surfaced anyway so a future change to the picking rule can't
+    // silently start mailing the junior contact without it showing up.
+    moreSeniorAlternatives: contacts.filter((c) => c.seniorityRank < contact.seniorityRank).length,
+    otherContactsOnFile: contacts.length - 1,
     ...(followUpCallWarning ? { followUpCallWarning } : {}),
   };
 }
 
 // Sends outreach to several companies in one operation, reusing
 // sendOutreachEmailForAgent() (and therefore every one of its guardrails —
-// duplicate-send check, draft/contact checks, and the shared hourly rate
-// limit) per company rather than duplicating any send logic here. Once the
-// rate limit is hit, remaining companies are reported as not attempted
-// rather than burning further calls that would all just rate-limit too.
+// duplicate-send check, draft/contact checks, most-senior-contact
+// selection, and the shared hourly rate limit) per company rather than
+// duplicating any send logic here.
+//
+// Whatever doesn't fit in this hour's allowance is QUEUED, not dropped:
+// it's stamped into the Sales Pitch Log's "Outreach Queued At" column and
+// the hourly drip (src/lib/ale/outreach-drip.ts) works through it at
+// OUTREACH_DRIP_PER_RUN an hour until it's empty. That's the timer — a
+// request can't sit and sleep for the six hours a 28-company backlog
+// needs, so the waiting happens between scheduled runs instead of inside
+// this call.
 export type BulkSendSummary = {
   attempted: Array<{ companyName: string; result: SendOutreachEmailResult }>;
-  notAttempted: string[];
+  // Accepted into the queue and guaranteed a later attempt — NOT sent yet.
+  queued: string[];
+  // Wanted but not queueable (already sent, already queued, no row).
+  skipped: Array<{ companyName: string; reason: string }>;
+  // Set if the queue write itself failed, in which case `queued` is empty
+  // and those companies got neither sent nor scheduled — must be reported,
+  // never folded into a success.
+  queueError?: string;
+  rateLimit: SendWindow;
+  autoResume: { perRun: number; cadence: string };
 };
 
 // Omit companyNames (or pass an empty array) to target every company that
@@ -194,18 +283,60 @@ export async function sendBulkOutreachEmailsForAgent(
   }
 
   const attempted: BulkSendSummary["attempted"] = [];
-  const notAttempted: string[] = [];
+  let remainder: string[] = [];
 
-  for (let i = 0; i < targets.length; i++) {
-    const companyName = targets[i];
+  // Only attempt what this hour's allowance can actually cover. Anything
+  // beyond it would just come back rate_limited, and each of those wasted
+  // attempts costs a full Sheets + Contacts read.
+  const opening = await getSendWindow();
+  const sendNow = targets.slice(0, opening.remaining);
+  remainder = targets.slice(opening.remaining);
+
+  for (let i = 0; i < sendNow.length; i++) {
+    const companyName = sendNow[i];
     const result = await sendOutreachEmailForAgent(companyName);
     attempted.push({ companyName, result });
 
+    // Still possible despite the pre-check if another send landed
+    // concurrently — the rest fall through to the queue below.
     if (result.status === "rate_limited") {
-      notAttempted.push(...targets.slice(i + 1));
+      remainder = [...sendNow.slice(i + 1), ...remainder];
       break;
+    }
+
+    if (i < sendNow.length - 1) await sleep(SEND_SPACING_MS);
+  }
+
+  let queued: string[] = [];
+  let skipped: BulkSendSummary["skipped"] = [];
+  let queueError: string | undefined;
+
+  if (remainder.length > 0) {
+    const workspaceToken = await getWorkspaceAccessToken();
+    try {
+      if (!workspaceToken) throw new Error("Google account not connected");
+      const outcome = await queueCompaniesForOutreach(workspaceToken, remainder);
+      queued = outcome.queued;
+      skipped = outcome.skipped;
+    } catch (err) {
+      queueError = `Could not queue the remaining ${remainder.length} companies for the next drip run: ${
+        err instanceof Error ? err.message : String(err)
+      }`;
+      await logAgentActivity({
+        agentId: "pipeline",
+        action: "Outreach queue write failed",
+        status: "error",
+        detail: queueError,
+      }).catch(() => {});
     }
   }
 
-  return { attempted, notAttempted };
+  return {
+    attempted,
+    queued,
+    skipped,
+    ...(queueError ? { queueError } : {}),
+    rateLimit: await getSendWindow(),
+    autoResume: { perRun: OUTREACH_DRIP_PER_RUN, cadence: OUTREACH_DRIP_CADENCE },
+  };
 }

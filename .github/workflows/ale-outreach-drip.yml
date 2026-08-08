@@ -1,0 +1,24 @@
+name: ALE outreach drip
+
+# The resume-after-rate-limit half of mass outreach. Pipeline sends what the
+# current hour allows and queues the rest into the Sales Pitch Log's
+# "Outreach Queued At" column; each run here sends the next few (4 per run,
+# under the hourly cap of 5) until that queue is empty. A 28-company backlog
+# therefore finishes over a working day on its own.
+#
+# Business hours only, on purpose — cold outreach landing at 3am reads as
+# spam, and the queue keeps perfectly well until the next run.
+on:
+  schedule:
+    - cron: "0 13-23 * * 1-5" # hourly, ~8am-6pm US Central (weekdays)
+  workflow_dispatch: {}
+
+jobs:
+  run-drip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger outreach drip
+        run: |
+          curl --fail-with-body -X POST \
+            -H "Authorization: Bearer ${{ secrets.ALE_BATCH_API_KEY }}" \
+            https://kiv-console-production.up.railway.app/api/ale/outreach-drip

@@ -138,6 +138,12 @@ export const SALES_PITCH_LOG_TAB = "ALE Sales Pitch Log";
 // until Pipeline's outreach-send tool actually sends this row's email,
 // then holds the real send timestamp; also the duplicate-send guard (a
 // populated value means don't send again).
+// "Outreach Queued At" appended last, same append-never-insert convention
+// as everything above — blank until Andrew arms a company for the hourly
+// outreach drip (src/lib/ale/outreach-drip.ts), then holds the time it was
+// queued. A row with this populated and "Email Sent At" still blank is
+// what the drip works through; clearing this cell by hand cancels a
+// queued send.
 export const SALES_PITCH_LOG_HEADER = [
   "Company",
   "Doc URL",
@@ -151,12 +157,23 @@ export const SALES_PITCH_LOG_HEADER = [
   "Outreach Email",
   "Video URL",
   "Email Sent At",
+  "Outreach Queued At",
 ];
 
 // Column indices into SALES_PITCH_LOG_HEADER above, shared by everything
 // that reads/writes a specific cell (rather than each call site
 // hand-deriving the same numbers) — getRows() returns rows starting at
 // sheet row 2 (header excluded), so array index i is sheet row i + 2.
+//
+// "Email Variation" is the source of truth for what actually gets sent:
+// it's the full-length pitch email the generator writes, and the short
+// "quick idea" template that used to override it is gone. "Outreach
+// Email" is now just the send-ready rendering of it, stored so the Doc
+// and the sheet show the same text a recipient will get.
+export const EMAIL_VARIATION_COL = 3;
 export const OUTREACH_EMAIL_COL = 9;
+export const VIDEO_URL_COL = 10;
 export const EMAIL_SENT_AT_COL = 11;
 export const EMAIL_SENT_AT_COLUMN_LETTER = "L";
+export const OUTREACH_QUEUED_AT_COL = 12;
+export const OUTREACH_QUEUED_AT_COLUMN_LETTER = "M";

@@ -14,6 +14,7 @@ import { generateShowcaseForAgent } from "./tools/showcase";
 import { createGithubIssue } from "./tools/github";
 import { getSearchConsoleStatsForAgent } from "./tools/search-console";
 import { sendOutreachEmailForAgent, sendBulkOutreachEmailsForAgent } from "./tools/send-outreach-email";
+import { getOutreachContactsForAgent } from "./tools/outreach-contacts";
 import {
   getMarketMoversForAgent,
   getMarketSentimentReportForAgent,
@@ -251,7 +252,7 @@ const SEND_OUTREACH_EMAIL_DECL: GeminiFunctionDeclaration = {
 const SEND_BULK_OUTREACH_EMAILS_DECL: GeminiFunctionDeclaration = {
   name: "send_bulk_outreach_emails",
   description:
-    "Send outreach emails to MULTIPLE companies in one operation — same real, irreversible send as send_outreach_email, looped per company with all the same guardrails (duplicate-send check, requires a drafted email and a real contact, and the shared hourly send-rate limit, which applies across ALL sends combined, single or bulk). Pass an explicit list of company names for a named batch, or omit companyNames entirely to target every company that currently has a drafted-but-unsent pitch and a real contact email on file. Once the hourly limit is hit mid-batch, remaining companies are reported as not attempted rather than being skipped silently — report that back plainly, don't imply the whole batch went out.",
+    "Send outreach emails to MULTIPLE companies in one operation — same real, irreversible send as send_outreach_email, looped per company with all the same guardrails (duplicate-send check, requires a drafted email and a real contact, most-senior-contact selection, and the shared hourly send-rate limit, which applies across ALL sends combined, single or bulk). Pass an explicit list of company names for a named batch, or omit companyNames entirely to target every company that currently has a drafted-but-unsent pitch and a real contact email on file. This handles rate limiting for you: it sends what the current hour allows, then QUEUES the rest, and a scheduled drip sends the queue a few per hour until it's empty — so a large batch completes over hours without anyone re-triggering it. Report the split honestly: `attempted` went out now, `queued` are scheduled and have NOT been sent yet, `skipped` were not queueable, and a `queueError` means those companies were neither sent nor scheduled. Never imply the whole batch went out.",
   parameters: {
     type: "OBJECT",
     properties: {
@@ -260,6 +261,22 @@ const SEND_BULK_OUTREACH_EMAILS_DECL: GeminiFunctionDeclaration = {
         items: { type: "STRING" },
         description:
           "Exact company names as they appear in the ALE Sales Pitch Log. Omit (or pass an empty array) to send to every eligible drafted-but-unsent company instead of naming them individually.",
+      },
+    },
+  },
+};
+
+const OUTREACH_CONTACTS_DECL: GeminiFunctionDeclaration = {
+  name: "get_outreach_contacts",
+  description:
+    "Read the actual contact list behind outreach, straight from the ALE Contacts spreadsheet: for each company, every contact on file with their name, job title, email, and where that title sits on the management ladder (seniorityRank 1 = most senior), plus which single contact an outreach email would actually go to (willReceiveOutreach), and whether that company's pitch is drafted, queued, or already sent. Use this to answer any question about who outreach targets, or to check seniority before sending. Read-only — it sends and queues nothing.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      companyName: {
+        type: "STRING",
+        description:
+          "Exact company name to drill into. Omit to list every company that has a pitch drafted.",
       },
     },
   },
@@ -315,6 +332,12 @@ const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknow
     createGithubIssue(String(args.title ?? ""), String(args.body ?? "")),
   get_search_console_stats: async () => getSearchConsoleStatsForAgent(),
   send_outreach_email: async (args) => sendOutreachEmailForAgent(String(args.companyName ?? "")),
+  get_outreach_contacts: async (args) =>
+    getOutreachContactsForAgent(
+      typeof args.companyName === "string" && args.companyName.trim()
+        ? args.companyName
+        : undefined,
+    ),
   send_bulk_outreach_emails: async (args) => {
     const companyNames = Array.isArray(args.companyNames)
       ? (args.companyNames as unknown[]).map(String)
@@ -381,7 +404,7 @@ export function getToolsForAgent(agentId: string): GeminiTool[] {
       case "canvas":
         return [SEARCH_CONSOLE_DECL];
       case "pipeline":
-        return [SEND_OUTREACH_EMAIL_DECL, SEND_BULK_OUTREACH_EMAILS_DECL];
+        return [OUTREACH_CONTACTS_DECL, SEND_OUTREACH_EMAIL_DECL, SEND_BULK_OUTREACH_EMAILS_DECL];
       default:
         return [];
     }

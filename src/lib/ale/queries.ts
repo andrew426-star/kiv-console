@@ -138,33 +138,138 @@ export type OutreachContact = {
   // is populated.
   phone: string | null;
   website: string | null;
+  // Where this contact's Title sits on the management ladder — rank 1 is
+  // the most senior, UNRANKED_SENIORITY the least. See SENIORITY_TIERS.
+  seniorityRank: number;
+  seniorityLabel: string;
 };
+
+export const UNRANKED_SENIORITY = 99;
+
+// Andrew: outreach should go to the highest person up the management
+// ladder that's on file for a company, not whoever Stage 2 research
+// happened to write down first. Scanned top-down, first match wins, so
+// the more senior pattern must always come before a pattern it contains
+// ("Managing Director" before "Director", "Managing Partner" before
+// both). The lookbehinds are what stop "Vice President" reading as
+// "President" and "Associate Director" as "Director" — the two ways a
+// naive substring match would promote a junior contact over their boss.
+const SENIORITY_TIERS: Array<{ rank: number; label: string; pattern: RegExp }> = [
+  { rank: 1, label: "Founder / Owner", pattern: /\b(co[-\s]?founder|founder|owner|proprietor)\b/i },
+  {
+    rank: 2,
+    label: "Chief executive",
+    pattern:
+      /\b(?:chief executive|ceo|chairman|chairwoman|chairperson)\b|(?<!vice[\s-])(?<!deputy[\s-])\bpresident\b/i,
+  },
+  {
+    rank: 3,
+    label: "C-suite",
+    pattern: /\b(?:c[iftmrod]o|chief(?:\s+\w+){1,3}\s+officer|chief\s+\w+)\b/i,
+  },
+  { rank: 4, label: "Partner", pattern: /\b(managing|general|senior|founding)?\s*partner\b/i },
+  {
+    rank: 5,
+    label: "Managing director / Principal",
+    pattern: /\b(managing director|executive director|principal)\b/i,
+  },
+  {
+    rank: 6,
+    label: "Head / Director",
+    pattern: /\bhead of\b|\bglobal head\b|(?<!associate[\s-])(?<!assistant[\s-])(?<!deputy[\s-])\bdirector\b/i,
+  },
+  { rank: 7, label: "Vice president", pattern: /\b(vice president|evp|svp|vp)\b/i },
+  { rank: 8, label: "Manager", pattern: /\b(manager|associate director|team lead|lead)\b/i },
+  { rank: 9, label: "Associate / Analyst", pattern: /\b(associate|analyst|assistant|coordinator)\b/i },
+];
+
+// Exported for the agent-facing contacts tool, so Pipeline can explain
+// *why* a given contact was picked rather than just naming them.
+export function rankContactTitle(title: string): { rank: number; label: string } {
+  const clean = (title ?? "").trim();
+  if (!clean) return { rank: UNRANKED_SENIORITY, label: "No title on file" };
+  const tier = SENIORITY_TIERS.find((t) => t.pattern.test(clean));
+  return tier
+    ? { rank: tier.rank, label: tier.label }
+    : { rank: UNRANKED_SENIORITY, label: "Unranked title" };
+}
+
+// Columns: Company Name, Website, Location, Phone, Business Overview,
+// Contact Name, Title, Email, LinkedIn, Instagram, Twitter (X), Facebook
+function toOutreachContact(row: string[]): OutreachContact {
+  const title = row[6] ?? "";
+  const { rank, label } = rankContactTitle(title);
+  return {
+    name: row[5],
+    email: row[7],
+    title,
+    phone: row[3]?.trim() || null,
+    website: row[1]?.trim() || null,
+    seniorityRank: rank,
+    seniorityLabel: label,
+  };
+}
+
+function isUsableContactRow(row: string[]): boolean {
+  return Boolean(row[5]?.trim() && row[7]?.trim());
+}
+
+// Every usable contact for one company, most senior first. Ties (two
+// contacts on the same rung, or two unranked titles) fall back to sheet
+// order, which is the behaviour this whole path had before ranking
+// existed — so a company whose titles are all blank picks exactly the same
+// contact it always did.
+export async function listContactsForCompany(
+  accessToken: string,
+  companyName: string,
+): Promise<OutreachContact[]> {
+  const rows = await getRows(accessToken, ALE_SPREADSHEET_ID, CONTACTS_TAB);
+  return rows
+    .map((row, sheetOrder) => ({ row, sheetOrder }))
+    .filter(({ row }) => row[0]?.toLowerCase() === companyName.toLowerCase() && isUsableContactRow(row))
+    .map(({ row, sheetOrder }) => ({ contact: toOutreachContact(row), sheetOrder }))
+    .sort((a, b) => a.contact.seniorityRank - b.contact.seniorityRank || a.sheetOrder - b.sheetOrder)
+    .map(({ contact }) => contact);
+}
+
+// The same thing keyed by company, for callers that need the whole book at
+// once (the agent-facing contacts tool) — one Sheets read instead of one
+// per company.
+export async function listContactsByCompany(
+  accessToken: string,
+): Promise<Map<string, OutreachContact[]>> {
+  const rows = await getRows(accessToken, ALE_SPREADSHEET_ID, CONTACTS_TAB);
+  const byCompany = new Map<string, Array<{ contact: OutreachContact; sheetOrder: number }>>();
+
+  rows.forEach((row, sheetOrder) => {
+    const company = row[0]?.trim();
+    if (!company || !isUsableContactRow(row)) return;
+    const bucket = byCompany.get(company) ?? [];
+    bucket.push({ contact: toOutreachContact(row), sheetOrder });
+    byCompany.set(company, bucket);
+  });
+
+  return new Map(
+    [...byCompany].map(([company, entries]) => [
+      company,
+      entries
+        .sort((a, b) => a.contact.seniorityRank - b.contact.seniorityRank || a.sheetOrder - b.sheetOrder)
+        .map(({ contact }) => contact),
+    ]),
+  );
+}
 
 // Stage 2's curated per-company contact list — always populated before a
 // pitch can exist, since generateSalesPitch() requires a Companies entry
-// which itself requires this tab. First row with both a real Contact Name
-// and Email, in sheet order — the simplest defensible pick; no "best
-// contact" ranking exists (or is needed) beyond that yet. Accepts an
-// already-fetched access token rather than calling
+// which itself requires this tab. Returns the most senior contact on file
+// (see listContactsForCompany), which is who outreach actually goes to.
+// Accepts an already-fetched access token rather than calling
 // getWorkspaceAccessToken() itself, since callers (e.g. the outreach-send
 // tool) already have one from an earlier call in the same request.
 export async function getContactForCompany(
   accessToken: string,
   companyName: string,
 ): Promise<OutreachContact | null> {
-  const rows = await getRows(accessToken, ALE_SPREADSHEET_ID, CONTACTS_TAB);
-  // Columns: Company Name, Website, Location, Phone, Business Overview,
-  // Contact Name, Title, Email, LinkedIn, Instagram, Twitter (X), Facebook
-  const match = rows.find(
-    (r) => r[0]?.toLowerCase() === companyName.toLowerCase() && r[5]?.trim() && r[7]?.trim(),
-  );
-  return match
-    ? {
-        name: match[5],
-        email: match[7],
-        title: match[6] ?? "",
-        phone: match[3]?.trim() || null,
-        website: match[1]?.trim() || null,
-      }
-    : null;
+  const contacts = await listContactsForCompany(accessToken, companyName);
+  return contacts[0] ?? null;
 }

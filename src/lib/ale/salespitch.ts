@@ -89,7 +89,7 @@ Do the following, using web search for anything you state as fact:
 
 3. Using whichever of the above you produced (problem+solution, or New Era), write the final pitch materials — these four go into the actual sales pitch document Andrew sends, so they must stand on their own without repeating the History/Problem/New-Era detail above verbatim:
    - initialPitch: an initial pitch (a few paragraphs) that opens with the hook and makes the case using whichever problem/opportunity you found.
-   - emailVariation: a short, ready-to-send email (with subject line).
+   - emailVariation: THE cold outreach email Andrew actually sends — this is the real thing that goes out, not a summary of the pitch, so write it in full. Start with a "Subject: ..." line, open with the hook, make the case over 3-5 short paragraphs using whichever problem/opportunity you found, and close by proposing a short discovery call to map where this fits into their workflow. It must be ready to send as-is: no placeholders like "[Your Name]" or "[Company]", no bracketed instructions, no notes to the reader. Do NOT write a sign-off or signature — one is appended automatically.
    - followUpCallVariation: talking points for a follow-up call if they don't respond within 3 days.
    - demoSetup: a concrete plan for a live product demo in a follow-up meeting with this company — what to show, in what order, using which data/module — grounded in the problem/opportunity you identified.
 
@@ -131,23 +131,23 @@ Exactly one of "problem"/"newEra" must be non-null — never both, never neither
 // this doc doesn't repeat it (per Andrew: doc holds the pitch, not the
 // research it's based on).
 //
-// "SEND THIS" goes first, above the older EMAIL VARIATION — Andrew's actual
-// habit is opening this doc and copying whatever's near the top, so the new
-// short outreach email (linking to the personalized landing page) needs to
-// be what he actually sees first, or the whole point of this change goes
-// unused. EMAIL VARIATION stays untouched below it, now reference-only.
+// The full-length Email Variation is the send-this email and goes first —
+// Andrew's actual habit is opening this doc and copying whatever's near the
+// top. There used to be a second, much shorter "quick idea" outreach email
+// sitting above it, with the variation demoted to reference-only; per
+// Andrew that short one is gone entirely, so there's one email here and
+// it's the long one. `outreachEmail` is that variation rendered send-ready
+// (subject line normalized, video link added if one exists) — the same text
+// the send path will produce, so the Doc can't drift from what goes out.
 function buildDocText(companyName: string, pitch: PitchOutput, outreachEmail: string): string {
   return [
     `${companyName} — Sales Pitch`,
     "",
-    "SEND THIS — OUTREACH EMAIL",
+    "SEND THIS — EMAIL VARIATION",
     outreachEmail,
     "",
     "INITIAL PITCH",
     pitch.initialPitch,
-    "",
-    "EMAIL VARIATION (reference — longer, older version)",
-    pitch.emailVariation,
     "",
     "FOLLOW-UP CALL VARIATION (if no response within 3 days)",
     pitch.followUpCallVariation,
@@ -233,7 +233,7 @@ export async function generateSalesPitch(placeId: string): Promise<SalesPitchRes
   });
   const outreachEmail = buildOutreachEmail({
     companyName: name,
-    hook: pitch.hook,
+    emailVariation: pitch.emailVariation,
     videoLink: videoLink ?? undefined,
   });
 

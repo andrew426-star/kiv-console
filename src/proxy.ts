@@ -17,6 +17,7 @@ const PUBLIC_PATHS = [
   "/api/agents/log",
   "/api/slack/events",
   "/api/ale/batch",
+  "/api/ale/outreach-drip",
   "/api/jarvis",
   "/api/trading",
 ];
