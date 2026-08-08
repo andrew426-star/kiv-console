@@ -7,7 +7,7 @@ export type LogStatus = (typeof VALID_STATUSES)[number];
 // Non-roster ids allowed to write to agent_activity_log, for external
 // services with their own dedicated K.I.V. page but no public roster entry.
 // See src/app/(dashboard)/jarvis/page.tsx.
-const EXTRA_LOGGABLE_AGENT_IDS = new Set(["jarvis"]);
+const EXTRA_LOGGABLE_AGENT_IDS = new Set(["jarvis", "trading-engine"]);
 
 export function isLoggableAgentId(agentId: string): boolean {
   return !!findAgent(agentId) || EXTRA_LOGGABLE_AGENT_IDS.has(agentId);

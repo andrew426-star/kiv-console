@@ -1,0 +1,22 @@
+name: Trading signal scan
+
+# Runs every registered strategy against the curated Stocks/Crypto/Metals/
+# Futures universe, evaluates each signal through the risk engine, and
+# persists every signal + decision (approved or rejected) to Supabase.
+# 100% advisory — no order-execution capability exists in this codebase.
+# Weekdays after US equity close. Kill switch (env var or the
+# trading_kill_switch DB row) is checked first inside the route itself.
+on:
+  schedule:
+    - cron: "0 22 * * 1-5" # ~5pm US Central (weekdays, after US equity close)
+  workflow_dispatch: {}
+
+jobs:
+  run-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger trading signal scan
+        run: |
+          curl --fail-with-body -X POST \
+            -H "Authorization: Bearer ${{ secrets.TRADING_SCAN_API_KEY }}" \
+            https://kiv-console-production.up.railway.app/api/trading/scan

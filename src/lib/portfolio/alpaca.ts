@@ -12,6 +12,9 @@ export type AlpacaAccount = {
   buyingPower: number;
   portfolioValue: number;
   status: string;
+  // Equity as of the previous trading day's close — the real baseline
+  // the trading engine's daily-loss circuit breaker compares against.
+  lastEquity: number;
 };
 
 export type AlpacaPosition = {
@@ -65,6 +68,7 @@ export async function getAlpacaPortfolio(): Promise<AlpacaPortfolioResult> {
       buying_power: string;
       portfolio_value: string;
       status: string;
+      last_equity: string;
     };
     const positionsData = (await positionsRes.json()) as Array<{
       symbol: string;
@@ -85,6 +89,7 @@ export async function getAlpacaPortfolio(): Promise<AlpacaPortfolioResult> {
           buyingPower: Number(accountData.buying_power),
           portfolioValue: Number(accountData.portfolio_value),
           status: accountData.status,
+          lastEquity: Number(accountData.last_equity),
         },
         positions: positionsData.map((p) => ({
           symbol: p.symbol,

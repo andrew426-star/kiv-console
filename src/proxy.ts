@@ -9,6 +9,8 @@ import { NextResponse, type NextRequest } from "next/server";
 // pattern as /api/agents/log.
 // /api/jarvis/notify is Jarvis's own backend calling in to DM an agent —
 // same bearer-token pattern as /api/agents/log.
+// /api/trading is the daily signal scan + weekly backtest GitHub Actions
+// cron jobs, same bearer-token pattern as /api/ale/batch.
 const PUBLIC_PATHS = [
   "/login",
   "/api/health",
@@ -16,6 +18,7 @@ const PUBLIC_PATHS = [
   "/api/slack/events",
   "/api/ale/batch",
   "/api/jarvis",
+  "/api/trading",
 ];
 
 export async function proxy(request: NextRequest) {

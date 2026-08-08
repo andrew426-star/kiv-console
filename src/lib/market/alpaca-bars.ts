@@ -108,6 +108,9 @@ export interface AssetMove {
 interface AlpacaBar {
   c: number;
   o: number;
+  h: number;
+  l: number;
+  v: number;
   t: string;
 }
 
@@ -122,9 +125,10 @@ async function fetchEquityBars(
   startISO: string,
   endISO: string,
   headers: Record<string, string>,
+  limit: number = symbols.length * BARS_PER_SYMBOL_LIMIT,
 ): Promise<Record<string, AlpacaBar[]>> {
   if (symbols.length === 0) return {};
-  const url = `${DATA_BASE_URL}/v2/stocks/bars?symbols=${encodeURIComponent(symbols.join(","))}&timeframe=1Day&start=${startISO}&end=${endISO}&limit=${symbols.length * BARS_PER_SYMBOL_LIMIT}&feed=iex`;
+  const url = `${DATA_BASE_URL}/v2/stocks/bars?symbols=${encodeURIComponent(symbols.join(","))}&timeframe=1Day&start=${startISO}&end=${endISO}&limit=${limit}&feed=iex`;
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(BARS_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Alpaca stock/ETF bars failed: ${await res.text()}`);
   const data = (await res.json()) as { bars?: Record<string, AlpacaBar[]> };
@@ -136,9 +140,10 @@ async function fetchCryptoBars(
   startISO: string,
   endISO: string,
   headers: Record<string, string>,
+  limit: number = symbols.length * BARS_PER_SYMBOL_LIMIT,
 ): Promise<Record<string, AlpacaBar[]>> {
   if (symbols.length === 0) return {};
-  const url = `${DATA_BASE_URL}/v1beta3/crypto/us/bars?symbols=${encodeURIComponent(symbols.join(","))}&timeframe=1Day&start=${startISO}&end=${endISO}&limit=${symbols.length * BARS_PER_SYMBOL_LIMIT}`;
+  const url = `${DATA_BASE_URL}/v1beta3/crypto/us/bars?symbols=${encodeURIComponent(symbols.join(","))}&timeframe=1Day&start=${startISO}&end=${endISO}&limit=${limit}`;
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(BARS_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Alpaca crypto bars failed: ${await res.text()}`);
   const data = (await res.json()) as { bars?: Record<string, AlpacaBar[]> };
@@ -252,6 +257,56 @@ export async function getAssetHistory(
       return { connected: true, symbol, error: `No price history found for ${symbol}.` };
     }
     return { connected: true, symbol, bars: bars.map((b) => ({ date: b.t, close: b.c })) };
+  } catch (err) {
+    return { connected: true, symbol, error: err instanceof Error ? err.message : "Bars fetch failed" };
+  }
+}
+
+// Full OHLCV history for one symbol — a superset of getAssetHistory's
+// close-only shape, needed for the trading engine's strategy math (ATR,
+// Donchian channels, volume confirmation all need more than just close).
+// Fetched per-symbol rather than batched like getAssetMoves: a single
+// symbol's full lookback comfortably fits one request's page size, so
+// there's no need to reason about Alpaca's cross-symbol `limit` cap here.
+export type FullBarHistoryResult =
+  | { connected: false }
+  | { connected: true; symbol: string; bars: { date: string; open: number; high: number; low: number; close: number; volume: number }[] }
+  | { connected: true; symbol: string; error: string };
+
+export async function getFullBarHistory(
+  symbol: string,
+  assetClass: AssetClass,
+  days: number,
+): Promise<FullBarHistoryResult> {
+  await connection();
+  const keyId = process.env.ALPACA_API_KEY_ID;
+  const secretKey = process.env.ALPACA_SECRET_KEY;
+  if (!keyId || !secretKey) return { connected: false };
+  const headers = { "APCA-API-KEY-ID": keyId, "APCA-API-SECRET-KEY": secretKey };
+
+  const end = new Date();
+  const start = new Date(end.getTime() - (days + 3) * 24 * 60 * 60 * 1000);
+  const startISO = start.toISOString();
+  const endISO = end.toISOString();
+
+  try {
+    // A single symbol's whole lookback fits comfortably in one request at
+    // daily granularity (confirmed live: ~275 daily bars for 13 months),
+    // so BARS_PER_SYMBOL_LIMIT-style sizing isn't tight here — a
+    // generous fixed multiple is enough without page_token pagination.
+    const barsBySymbol =
+      assetClass === "crypto"
+        ? await fetchCryptoBars([symbol], startISO, endISO, headers, 5000)
+        : await fetchEquityBars([symbol], startISO, endISO, headers, 5000);
+    const bars = barsBySymbol[symbol];
+    if (!bars || bars.length === 0) {
+      return { connected: true, symbol, error: `No price history found for ${symbol}.` };
+    }
+    return {
+      connected: true,
+      symbol,
+      bars: bars.map((b) => ({ date: b.t, open: b.o, high: b.h, low: b.l, close: b.c, volume: b.v })),
+    };
   } catch (err) {
     return { connected: true, symbol, error: err instanceof Error ? err.message : "Bars fetch failed" };
   }

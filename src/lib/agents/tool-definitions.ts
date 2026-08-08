@@ -19,6 +19,7 @@ import {
   getMarketSentimentReportForAgent,
   getAssetHistoryForAgent,
 } from "./tools/market-movers";
+import { getTradingSignalsForAgent, getStrategyPerformanceForAgent } from "./tools/trading-signals";
 
 const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   name: "get_news_feed",
@@ -119,6 +120,48 @@ const ASSET_HISTORY_DECL: GeminiFunctionDeclaration = {
       days: { type: "NUMBER", description: "Lookback window in days. Default 14." },
     },
     required: ["symbol"],
+  },
+};
+
+const GET_TRADING_SIGNALS_DECL: GeminiFunctionDeclaration = {
+  name: "get_trading_signals",
+  description:
+    "Get real algorithmic trading signals from K.I.V.'s rule-based signal engine (momentum, mean-reversion, breakout, and composite/ensemble strategies) across the same Stocks/Crypto/Metals/Futures universe as get_market_movers. Every signal already went through a real risk evaluation (position sizing, exposure caps, a daily-loss circuit breaker) before this returns it — approved:true/false and decisionReasons reflect that real decision, not your own read of the signal. This is 100% advisory: there is no tool anywhere that can place a trade.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      symbol: { type: "STRING", description: "Filter to one specific symbol, e.g. 'AAPL' or 'BTC/USD'." },
+      assetClass: {
+        type: "STRING",
+        format: "enum",
+        enum: ["stocks", "crypto", "metals", "futures"],
+        description: "Filter to one asset class. Omit for all.",
+      },
+      approvedOnly: {
+        type: "BOOLEAN",
+        description: "If true, only return signals the risk engine actually approved. Default false (returns both approved and rejected).",
+      },
+      limit: { type: "NUMBER", description: "Max signals to return, most recent first. Default 20." },
+    },
+  },
+};
+
+const GET_STRATEGY_PERFORMANCE_DECL: GeminiFunctionDeclaration = {
+  name: "get_strategy_performance",
+  description:
+    "Get real walk-forward-backtested performance for K.I.V.'s trading strategies (momentum, mean_reversion, breakout, composite) — win rate, profit factor, Sharpe ratio, max drawdown, and total return, per symbol. This reflects historical backtest results only, not a live-trading track record (K.I.V. never executes trades).",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      strategyId: {
+        type: "STRING",
+        format: "enum",
+        enum: ["momentum", "mean_reversion", "breakout", "composite"],
+        description: "Filter to one strategy. Omit for all.",
+      },
+      symbol: { type: "STRING", description: "Filter to one specific symbol." },
+      limit: { type: "NUMBER", description: "Max backtest runs to return, most recent first. Default 20." },
+    },
   },
 };
 
@@ -251,6 +294,19 @@ const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknow
       assetClass: typeof args.assetClass === "string" ? args.assetClass : undefined,
       days: typeof args.days === "number" ? args.days : undefined,
     }),
+  get_trading_signals: async (args) =>
+    getTradingSignalsForAgent({
+      symbol: typeof args.symbol === "string" ? args.symbol : undefined,
+      assetClass: typeof args.assetClass === "string" ? args.assetClass : undefined,
+      approvedOnly: typeof args.approvedOnly === "boolean" ? args.approvedOnly : undefined,
+      limit: typeof args.limit === "number" ? args.limit : undefined,
+    }),
+  get_strategy_performance: async (args) =>
+    getStrategyPerformanceForAgent({
+      strategyId: typeof args.strategyId === "string" ? args.strategyId : undefined,
+      symbol: typeof args.symbol === "string" ? args.symbol : undefined,
+      limit: typeof args.limit === "number" ? args.limit : undefined,
+    }),
   search_company_drive: async (args) => searchCompanyDriveForAgent(String(args.query ?? "")),
   get_integrations_status: async () => getIntegrationsStatus(),
   get_pipeline_status: async () => getPipelineStatusForAgent(),
@@ -296,6 +352,7 @@ export function getToolsForAgent(agentId: string): GeminiTool[] {
           NEWS_FEED_DECL,
           STRIPE_FINANCIALS_DECL,
           ALPACA_PORTFOLIO_DECL,
+          GET_TRADING_SIGNALS_DECL,
         ];
       case "blueprint":
         return [WEB_SEARCH_DECL, GENERATE_SHOWCASE_DECL];
@@ -313,6 +370,8 @@ export function getToolsForAgent(agentId: string): GeminiTool[] {
           MARKET_MOVERS_DECL,
           MARKET_SENTIMENT_DECL,
           ASSET_HISTORY_DECL,
+          GET_TRADING_SIGNALS_DECL,
+          GET_STRATEGY_PERFORMANCE_DECL,
         ];
       case "chronicle":
         return [CALENDAR_DECL, COMPANY_STATS_DECL, COMPANY_DRIVE_DECL];

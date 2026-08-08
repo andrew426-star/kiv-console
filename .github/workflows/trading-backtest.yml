@@ -1,0 +1,20 @@
+name: Trading weekly backtest
+
+# Runs every registered strategy's walk-forward backtest against the
+# curated Stocks/Crypto/Metals/Futures universe and persists results —
+# the heavier compute job, separated from the daily scan since backtest
+# performance doesn't meaningfully change day to day.
+on:
+  schedule:
+    - cron: "0 14 * * 0" # ~9am US Central, Sunday
+  workflow_dispatch: {}
+
+jobs:
+  run-backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger weekly backtest run
+        run: |
+          curl --fail-with-body -X POST \
+            -H "Authorization: Bearer ${{ secrets.TRADING_BACKTEST_API_KEY }}" \
+            https://kiv-console-production.up.railway.app/api/trading/backtest
