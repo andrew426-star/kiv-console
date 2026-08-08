@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CompanyFinancials } from "@/components/portfolio/company-financials";
 import { InvestmentAccount } from "@/components/portfolio/investment-account";
+import { TradingSignals } from "@/components/portfolio/trading-signals";
 
 function SectionSkeleton({ rows = 3 }: { rows?: number }) {
   return (
@@ -34,6 +35,10 @@ export default function PortfolioPage() {
 
       <Suspense fallback={<SectionSkeleton rows={4} />}>
         <InvestmentAccount />
+      </Suspense>
+
+      <Suspense fallback={<SectionSkeleton rows={4} />}>
+        <TradingSignals />
       </Suspense>
     </div>
   );
