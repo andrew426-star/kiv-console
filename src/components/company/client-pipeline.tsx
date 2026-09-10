@@ -81,7 +81,7 @@ export async function ClientPipeline() {
           </p>
           {leads.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No leads yet — move a prospect here once you've reached out.
+              No leads yet — move a prospect here once you&apos;ve reached out.
             </p>
           ) : (
             leads.map((lead) => (
