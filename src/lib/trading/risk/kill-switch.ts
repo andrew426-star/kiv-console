@@ -17,7 +17,7 @@ export async function isTradingHalted(): Promise<KillSwitchStatus> {
   }
 
   try {
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
     const { data, error } = await admin
       .from("trading_kill_switch")
       .select("enabled, reason")

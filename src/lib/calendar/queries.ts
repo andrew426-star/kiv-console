@@ -14,7 +14,7 @@ export async function getCalendarState(): Promise<CalendarState> {
   } = await supabase.auth.getUser();
   if (!user) return { connected: false };
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: connection } = await admin
     .from("calendar_connections")
     .select("*")

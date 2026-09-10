@@ -45,7 +45,7 @@ export interface BacktestRunSummary {
 // each run + its individual trades to Supabase so Ticker/Oracle can cite
 // real backtested performance instead of an unverified impression.
 export async function runAllBacktests(): Promise<BacktestRunSummary[]> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   await syncStrategyRegistry(admin);
 
   const summaries: BacktestRunSummary[] = [];
@@ -119,7 +119,7 @@ export async function runAllBacktests(): Promise<BacktestRunSummary[]> {
 }
 
 async function persistBacktestRun(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: Awaited<ReturnType<typeof createAdminClient>>,
   symbol: string,
   assetClass: AssetClass,
   strategyId: StrategyId,

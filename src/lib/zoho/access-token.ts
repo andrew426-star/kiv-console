@@ -13,7 +13,7 @@ export type ZohoConnection = {
 // every send needs the fromAddress, unlike Calendar/Sheets/Docs calls
 // which don't embed an account identifier in the URL.
 export async function getZohoAccessToken(): Promise<ZohoConnection | null> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: connection } = await admin
     .from("zoho_connections")
     .select("*")
@@ -51,7 +51,7 @@ export async function getZohoAccessToken(): Promise<ZohoConnection | null> {
 // Connection-status-only check for the /autonomy page's "Connect Zoho
 // Mail" card — no token refresh, just whether a row exists at all.
 export async function getZohoConnectionSummary(): Promise<{ connected: boolean; emailAddress?: string }> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: connection } = await admin
     .from("zoho_connections")
     .select("email_address")

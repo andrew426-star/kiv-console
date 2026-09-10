@@ -30,7 +30,7 @@ async function ZohoConnectionCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-heading">Zoho Mail — Pipeline's send capability</CardTitle>
+        <CardTitle className="font-heading">Zoho Mail — Pipeline&apos;s send capability</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {error ? <p className="text-sm text-destructive">Connection failed: {error}</p> : null}

@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     const email = await fetchGoogleUserEmail(tokens.access_token);
 
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
     const { error } = await admin.from("calendar_connections").upsert({
       profile_id: user.id,
       calendar_email: email,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
 
@@ -30,9 +31,9 @@ export default function DashboardError({
         </CardHeader>
         <CardContent className="flex gap-3">
           <Button onClick={reset}>Try again</Button>
-          <a href="/" className={buttonVariants({ variant: "ghost" })}>
+          <Link href="/" className={buttonVariants({ variant: "ghost" })}>
             Back to home
-          </a>
+          </Link>
         </CardContent>
       </Card>
     </div>

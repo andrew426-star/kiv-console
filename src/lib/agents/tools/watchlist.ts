@@ -5,7 +5,7 @@ import { getQuotesFor, type Quote } from "@/lib/market/finnhub";
 // tool calls have no Supabase session/cookies to bind a session-scoped
 // client to, so this bypasses RLS via the service-role key instead.
 export async function getWatchlistForAgent(): Promise<Quote[]> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: items, error } = await admin
     .from("watchlist_items")
     .select("id, symbol, label")
