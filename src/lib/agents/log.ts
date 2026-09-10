@@ -31,7 +31,7 @@ export async function logAgentActivity({ agentId, action, detail, status }: LogA
     throw new Error("action is required");
   }
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data, error } = await admin
     .from("agent_activity_log")
     .insert({

@@ -7,7 +7,7 @@ import { STRATEGY_IDS, STRATEGY_REGISTRY } from "./index";
 // codebase. Kept out of strategies/index.ts itself so that file stays a
 // pure, dependency-free registry — directly unit-testable without pulling
 // in the Supabase client.
-export async function syncStrategyRegistry(admin: ReturnType<typeof createAdminClient>): Promise<void> {
+export async function syncStrategyRegistry(admin: Awaited<ReturnType<typeof createAdminClient>>): Promise<void> {
   const rows = STRATEGY_IDS.map((id) => {
     const strategy = STRATEGY_REGISTRY[id];
     return {

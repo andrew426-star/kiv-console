@@ -75,7 +75,7 @@ export type SendWindow = {
 // rather than only that it stopped — the difference between "24 companies
 // not attempted" and "24 queued, next 4 go out at 12:20 PM".
 async function getSendWindow(): Promise<SendWindow> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const oneHourAgo = new Date(Date.now() - HOUR_MS).toISOString();
   const { data } = await admin
     .from("agent_activity_log")

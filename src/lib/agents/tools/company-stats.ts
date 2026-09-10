@@ -10,7 +10,7 @@ export type CompanyStatsForAgent = {
 // Admin-scoped mirror of getTaskStats() (src/lib/company/queries.ts) — same
 // reasoning as the watchlist/calendar variants in this directory.
 export async function getCompanyStatsForAgent(): Promise<CompanyStatsForAgent> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data, error } = await admin.from("tasks").select("status");
   if (error) throw error;
 

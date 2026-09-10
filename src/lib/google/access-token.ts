@@ -8,7 +8,7 @@ import { refreshAccessToken } from "@/lib/calendar/google";
 // without a browser session — the Slack agent tools and the Autonomous
 // Lead Engine both need this.
 export async function getWorkspaceAccessToken(): Promise<string | null> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const { data: connection } = await admin
     .from("calendar_connections")
     .select("*")

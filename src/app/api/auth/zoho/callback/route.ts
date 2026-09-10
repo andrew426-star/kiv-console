@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     const { accountId, emailAddress } = await resolveZohoAccount(tokens.access_token);
 
-    const admin = createAdminClient();
+    const admin = await createAdminClient();
     const { error } = await admin.from("zoho_connections").upsert({
       profile_id: user.id,
       email_address: emailAddress,

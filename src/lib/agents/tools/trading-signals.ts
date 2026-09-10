@@ -45,7 +45,7 @@ export async function getTradingSignalsForAgent(args: {
   approvedOnly?: boolean;
   limit?: number;
 }): Promise<TradingSignalForAgent[]> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const limit = args.limit && args.limit > 0 ? Math.round(args.limit) : 20;
 
   let query = admin
@@ -125,7 +125,7 @@ export async function getStrategyPerformanceForAgent(args: {
   symbol?: string;
   limit?: number;
 }): Promise<StrategyPerformanceForAgent[]> {
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   const limit = args.limit && args.limit > 0 ? Math.round(args.limit) : 20;
 
   let query = admin

@@ -79,7 +79,7 @@ export async function generateSignalsForUniverse(): Promise<SignalScanSummary> {
     todayPnLPct,
   };
 
-  const admin = createAdminClient();
+  const admin = await createAdminClient();
   await syncStrategyRegistry(admin);
 
   const errors: string[] = [];
@@ -135,7 +135,7 @@ export async function generateSignalsForUniverse(): Promise<SignalScanSummary> {
 }
 
 async function persistSignalAndDecision(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: Awaited<ReturnType<typeof createAdminClient>>,
   symbol: string,
   assetClass: AssetClass,
   strategyId: StrategyId,
