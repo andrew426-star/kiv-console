@@ -1,0 +1,21 @@
+# Render Blueprint for kiv-console (replaces the old railway.json — the
+# platform moved off Railway, see README's Deploy section).
+#
+# Node version comes from .nvmrc (22), which Render reads automatically —
+# deliberately not pinned again here so the two can't drift apart.
+services:
+  - type: web
+    name: kiv-console
+    runtime: node
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    # Cheap, unauthenticated liveness route (src/app/api/health/route.ts),
+    # already exempt from the auth proxy's redirect in src/proxy.ts.
+    healthCheckPath: /api/health
+    autoDeploy: true
+    # Every key in .env.example must be set on the service in the Render
+    # dashboard. They're all secrets (Supabase service-role, Stripe, Alpaca,
+    # Zoho, Gemini, plus a bot token + signing secret for each of the 15
+    # Slack agents), so none are declared here — a Blueprint is committed to
+    # git and secret values must never be. The service builds fine without
+    # them and then fails at runtime, which is the confusing failure mode.

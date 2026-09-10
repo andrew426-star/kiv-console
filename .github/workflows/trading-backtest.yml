@@ -17,4 +17,4 @@ jobs:
         run: |
           curl --fail-with-body -X POST \
             -H "Authorization: Bearer ${{ secrets.TRADING_BACKTEST_API_KEY }}" \
-            https://kiv-console-production.up.railway.app/api/trading/backtest
+            https://kiv-console.onrender.com/api/trading/backtest

@@ -41,6 +41,12 @@ supabase db push
 
 ## Deploy
 
-Deploys to Vercel. Connect the GitHub repo in the Vercel dashboard (or
-`vercel link` + `vercel --prod`), then set the environment variables from
-`.env.example` in the Vercel project settings.
+Deploys to Render — <https://kiv-console.onrender.com>, configured by
+`render.yaml`. The service is connected to this GitHub repo and auto-deploys
+every push to `main`; set the environment variables from `.env.example` in
+the service's dashboard (they are secrets, so the Blueprint deliberately
+declares none). To rebuild the current commit without pushing, use the
+service's Deploy Hook (Settings -> Deploy Hook) or Manual Deploy.
+
+The scheduled jobs in `.github/workflows/` POST to this same host, so if the
+URL ever changes again, update those four workflow files alongside it.

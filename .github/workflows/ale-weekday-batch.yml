@@ -17,4 +17,4 @@ jobs:
         run: |
           curl --fail-with-body -X POST \
             -H "Authorization: Bearer ${{ secrets.ALE_BATCH_API_KEY }}" \
-            https://kiv-console-production.up.railway.app/api/ale/batch
+            https://kiv-console.onrender.com/api/ale/batch
