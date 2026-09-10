@@ -19,4 +19,4 @@ jobs:
         run: |
           curl --fail-with-body -X POST \
             -H "Authorization: Bearer ${{ secrets.TRADING_SCAN_API_KEY }}" \
-            https://kiv-console-production.up.railway.app/api/trading/scan
+            https://kiv-console.onrender.com/api/trading/scan
