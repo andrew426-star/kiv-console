@@ -22,11 +22,11 @@ export function DiscoveryForm() {
 
   return (
     <div className="flex flex-col gap-1">
-      <form action={handleSubmit} className="flex items-center gap-2">
+      <form action={handleSubmit} className="flex flex-wrap items-center gap-2">
         <Input
           name="query"
           placeholder='e.g. "hedge funds in Dallas, TX"'
-          className="h-8 w-72"
+          className="h-8 w-full sm:w-80"
           required
         />
         <Button type="submit" size="sm" disabled={isPending}>

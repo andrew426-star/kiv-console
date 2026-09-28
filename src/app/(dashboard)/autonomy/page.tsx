@@ -7,6 +7,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { DiscoveryForm } from "@/components/ale/discovery-form";
 import { LeadsTable } from "@/components/ale/leads-table";
 import { getZohoConnectionSummary } from "@/lib/zoho/access-token";
+import { isLeadStage } from "@/lib/ale/stage";
+
+type SearchParams = Promise<{ error?: string; stage?: string }>;
 
 function SectionSkeleton({ rows = 4 }: { rows?: number }) {
   return (
@@ -20,47 +23,38 @@ function SectionSkeleton({ rows = 4 }: { rows?: number }) {
   );
 }
 
-async function ZohoConnectionCard({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
+// One line: whether Pipeline can actually send the drafted emails.
+async function ZohoStatus({ searchParams }: { searchParams: SearchParams }) {
   const [{ error }, status] = await Promise.all([searchParams, getZohoConnectionSummary()]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-heading">Zoho Mail — Pipeline&apos;s send capability</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {error ? <p className="text-sm text-destructive">Connection failed: {error}</p> : null}
-        {status.connected ? (
-          <p className="text-sm text-muted-foreground">
-            Connected as <span className="font-medium text-foreground">{status.emailAddress}</span> — Pipeline
-            can send drafted outreach emails from this address.
-          </p>
-        ) : (
-          <>
-            <p className="text-sm text-muted-foreground">
-              Not connected. Connect Zoho Mail so Pipeline can actually send the drafted outreach
-              emails below, signed &quot;Andrew Thomas, Kivaro AI&quot; — sign in as
-              andrew.thomas@kivaroai.com when prompted.
-            </p>
-            <a href="/api/auth/zoho/connect" className={buttonVariants({ className: "w-fit" })}>
-              Connect Zoho Mail
-            </a>
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+      <span className="text-muted-foreground">Sending (Zoho Mail):</span>
+      {status.connected ? (
+        <Badge variant="outline" className="border-kv-mint/40 text-kv-mint">
+          Connected as {status.emailAddress}
+        </Badge>
+      ) : (
+        <>
+          <Badge variant="outline" className="border-amber-400/60 text-amber-400">
+            Not connected
+          </Badge>
+          <a href="/api/auth/zoho/connect" className={buttonVariants({ size: "xs" })}>
+            Connect as andrew.thomas@kivaroai.com
+          </a>
+        </>
+      )}
+      {error ? <span className="text-destructive">Connection failed: {error}</span> : null}
+    </div>
   );
 }
 
-export default function AutonomyPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>;
-}) {
+async function Leads({ searchParams }: { searchParams: SearchParams }) {
+  const { stage } = await searchParams;
+  return <LeadsTable stage={isLeadStage(stage) ? stage : null} />;
+}
+
+export default function AutonomyPage({ searchParams }: { searchParams: SearchParams }) {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div>
@@ -70,47 +64,37 @@ export default function AutonomyPage({
         </p>
       </div>
 
-      <Suspense fallback={<SectionSkeleton rows={2} />}>
-        <ZohoConnectionCard searchParams={searchParams} />
-      </Suspense>
-
       <Card className="glow-border-hover">
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle className="font-heading">Autonomous Lead Engine</CardTitle>
           <Badge variant="outline" className="border-kv-mint/40 text-kv-mint">
             All 3 stages live
           </Badge>
         </CardHeader>
-        <CardContent className="flex flex-col gap-2">
+        <CardContent className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
-            Discovery, Hunter.io enrichment, company research, and Sales Pitch doc generation all
-            write directly into the real Geolocation Lead Engine, Autonomous Lead Engine, and
-            Sales Pitch Log spreadsheets — this page is a live window into them, not a copy.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            A weekday automation advances up to 5 backlogged leads through enrichment, research,
-            and a finished pitch doc each morning — the buttons below are for running any stage
-            manually, out of turn.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Monitored day-to-day by{" "}
+            Discover → enrich contacts (Hunter) → research → draft a sales pitch, written straight
+            into the real ALE spreadsheets. Each weekday morning, automation advances up to 5
+            leads; use the buttons below to run a step now.{" "}
             <Link href="/agents" className="font-medium text-primary hover:underline">
               Pipeline
-            </Link>
-            , the Lead Engine Manager on the Automation &amp; Dev Workshop division.
+            </Link>{" "}
+            sends the drafted emails.
           </p>
+          <Suspense fallback={<Skeleton className="h-6 w-72" />}>
+            <ZohoStatus searchParams={searchParams} />
+          </Suspense>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Discover companies
+            </span>
+            <DiscoveryForm />
+          </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="font-heading">Discover companies</CardTitle>
-          <DiscoveryForm />
-        </CardHeader>
-      </Card>
-
       <Suspense fallback={<SectionSkeleton />}>
-        <LeadsTable />
+        <Leads searchParams={searchParams} />
       </Suspense>
     </div>
   );
