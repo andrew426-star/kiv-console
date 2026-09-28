@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +7,11 @@ import { DIVISIONS, findAgent } from "@/lib/agents/roster";
 import { getActivitySnapshot } from "@/lib/agents/activity";
 import { StatusBadge } from "@/components/agents/status-badge";
 
+const AGENT_COUNT = DIVISIONS.reduce((n, d) => n + d.agents.length, 0);
+
 const STATS = [
-  { label: "Sovereign Agents", value: "15" },
-  { label: "Operating Divisions", value: "5" },
+  { label: "Launch Agents", value: String(AGENT_COUNT) },
+  { label: "Operating Divisions", value: String(DIVISIONS.length) },
   { label: "Autonomous Operation", value: "24/7" },
   { label: "Built In-House", value: "100%" },
 ];
@@ -42,7 +45,9 @@ async function AgentsContent() {
               </span>
               <div>
                 <CardTitle className="font-heading">{division.label}</CardTitle>
-                <p className="text-xs text-muted-foreground">{division.agents.length} agents</p>
+                <p className="text-xs text-muted-foreground">
+                  {division.agents.length} {division.agents.length === 1 ? "agent" : "agents"}
+                </p>
               </div>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -125,8 +130,9 @@ export default function AgentsPage() {
       <div>
         <h1 className="font-heading text-2xl font-bold text-gradient-green">Agent Team</h1>
         <p className="text-sm text-muted-foreground">
-          The 15 sovereign AI agents powering Kivaro AI operations, across 5 divisions. Reference
-          roster mirrored from kivaroai.com/agents — not wired into K.I.V. yet, that&apos;s Phase 4.
+          The {AGENT_COUNT} agents focused on Kivaro AI&apos;s January 2027 launch, each reachable in
+          Slack. Every one can read and log to the <Link href="/launch" className="underline">launch
+          tracker</Link>.
         </p>
       </div>
 

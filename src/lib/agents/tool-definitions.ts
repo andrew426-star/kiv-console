@@ -1,10 +1,7 @@
 import type { GeminiFunctionDeclaration, GeminiTool } from "@/lib/ai/gemini";
 import { webSearch, WEB_SEARCH_DECL } from "@/lib/ai/web-search";
-import { getMarketQuotes, getQuotesFor } from "@/lib/market/finnhub";
 import { getNewsFeed } from "@/lib/news/newsapi";
 import { getStripeFinancials } from "@/lib/portfolio/stripe";
-import { getAlpacaPortfolio } from "@/lib/portfolio/alpaca";
-import { getWatchlistForAgent } from "./tools/watchlist";
 import { getCalendarEventsForAgent } from "./tools/calendar";
 import { getCompanyStatsForAgent } from "./tools/company-stats";
 import { searchCompanyDriveForAgent } from "./tools/company-drive";
@@ -15,12 +12,7 @@ import { createGithubIssue } from "./tools/github";
 import { getSearchConsoleStatsForAgent } from "./tools/search-console";
 import { sendOutreachEmailForAgent, sendBulkOutreachEmailsForAgent } from "./tools/send-outreach-email";
 import { getOutreachContactsForAgent } from "./tools/outreach-contacts";
-import {
-  getMarketMoversForAgent,
-  getMarketSentimentReportForAgent,
-  getAssetHistoryForAgent,
-} from "./tools/market-movers";
-import { getTradingSignalsForAgent, getStrategyPerformanceForAgent } from "./tools/trading-signals";
+import { getLaunchStatusForAgent, logLaunchActivityForAgent } from "./tools/launch";
 
 const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   name: "get_news_feed",
@@ -29,32 +21,9 @@ const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   parameters: { type: "OBJECT", properties: {} },
 };
 
-const MARKET_QUOTES_DECL: GeminiFunctionDeclaration = {
-  name: "get_market_quotes",
-  description:
-    "Get live price quotes. Pass specific ticker symbols, or omit to get Kivaro's default market snapshot (SPY, QQQ, AAPL, NVDA, BTC, ETH).",
-  parameters: {
-    type: "OBJECT",
-    properties: {
-      symbols: {
-        type: "ARRAY",
-        items: { type: "STRING" },
-        description:
-          'Ticker symbols to quote, e.g. ["AAPL", "BINANCE:BTCUSDT"]. Omit for the default snapshot.',
-      },
-    },
-  },
-};
-
-const WATCHLIST_DECL: GeminiFunctionDeclaration = {
-  name: "get_watchlist",
-  description: "Get Kivaro's tracked investment watchlist with live price quotes.",
-  parameters: { type: "OBJECT", properties: {} },
-};
-
 const CALENDAR_DECL: GeminiFunctionDeclaration = {
   name: "get_calendar_events",
-  description: "Get Andrew's upcoming calendar events for the next 14 days.",
+  description: "Get Andrew's calendar for the next 14 days, already organized and in Central time: highlights (one-off events, exams, deadlines, sales calls, and classes at an unusual time), his weekly routine (repeating blocks like classes, one row each with days and time), and a day-by-day agenda.",
   parameters: { type: "OBJECT", properties: {} },
 };
 
@@ -70,100 +39,6 @@ const STRIPE_FINANCIALS_DECL: GeminiFunctionDeclaration = {
   description:
     "Get Kivaro AI's live Stripe balance (available/pending) and recent account activity. Read-only — there is no capability to issue charges, refunds, or payouts.",
   parameters: { type: "OBJECT", properties: {} },
-};
-
-const ALPACA_PORTFOLIO_DECL: GeminiFunctionDeclaration = {
-  name: "get_alpaca_portfolio",
-  description:
-    "Get Kivaro's investment account: equity, cash, buying power, and open positions with unrealized P/L. Read-only — there is no capability to place trades.",
-  parameters: { type: "OBJECT", properties: {} },
-};
-
-const MARKET_MOVERS_DECL: GeminiFunctionDeclaration = {
-  name: "get_market_movers",
-  description:
-    "Get the biggest gainers and losers across a broad, real, curated universe of Stocks, Crypto, Metals, and Futures over a period — not limited to Kivaro's watchlist. Default period is the last 7 days. Metals and Futures have no raw spot/contract price feed available on this account's data plan; they're represented by real, heavily-traded tracking ETFs (e.g. GLD for gold, USO for crude oil) — every one of those labels ends in '(... ETF proxy)'. Never present an ETF-proxy result as a literal spot or futures-contract price — always call it out as a proxy when discussing Metals or Futures.",
-  parameters: {
-    type: "OBJECT",
-    properties: {
-      periodDays: { type: "NUMBER", description: "Lookback window in days. Default 7 (one week)." },
-      assetClasses: {
-        type: "ARRAY",
-        items: { type: "STRING", format: "enum", enum: ["stocks", "crypto", "metals", "futures"] },
-        description: "Which asset classes to include. Omit for all four.",
-      },
-      limit: { type: "NUMBER", description: "How many top gainers and top losers to return. Default 10." },
-    },
-  },
-};
-
-const MARKET_SENTIMENT_DECL: GeminiFunctionDeclaration = {
-  name: "get_market_sentiment_report",
-  description:
-    "Get a real market-sentiment snapshot for the last 7 days across the same Stocks/Crypto/Metals/Futures universe as get_market_movers: breadth (how many tracked assets are up vs. down, and the average move), the current top gainers/losers, and recent real market-moving news headlines. This returns real underlying data only, never a pre-written sentiment verdict — read the breadth/headlines yourself and write the actual sentiment summary in your own reply.",
-  parameters: { type: "OBJECT", properties: {} },
-};
-
-const ASSET_HISTORY_DECL: GeminiFunctionDeclaration = {
-  name: "get_asset_price_history",
-  description:
-    "Get real recent daily closing prices for one specific symbol (a stock/ETF ticker like 'AAPL', or a crypto pair like 'BTC/USD'), to ground any commentary or entry/exit read on that specific asset in real recent price action rather than a guess.",
-  parameters: {
-    type: "OBJECT",
-    properties: {
-      symbol: { type: "STRING", description: "Ticker symbol, e.g. 'AAPL' or 'BTC/USD'." },
-      assetClass: {
-        type: "STRING",
-        format: "enum",
-        enum: ["stocks", "crypto", "metals", "futures"],
-        description: "Optional — inferred from the symbol format if omitted (a '/' in the symbol implies crypto).",
-      },
-      days: { type: "NUMBER", description: "Lookback window in days. Default 14." },
-    },
-    required: ["symbol"],
-  },
-};
-
-const GET_TRADING_SIGNALS_DECL: GeminiFunctionDeclaration = {
-  name: "get_trading_signals",
-  description:
-    "Get real algorithmic trading signals from K.I.V.'s rule-based signal engine (momentum, mean-reversion, breakout, and composite/ensemble strategies) across the same Stocks/Crypto/Metals/Futures universe as get_market_movers. Every signal already went through a real risk evaluation (position sizing, exposure caps, a daily-loss circuit breaker) before this returns it — approved:true/false and decisionReasons reflect that real decision, not your own read of the signal. This is 100% advisory: there is no tool anywhere that can place a trade.",
-  parameters: {
-    type: "OBJECT",
-    properties: {
-      symbol: { type: "STRING", description: "Filter to one specific symbol, e.g. 'AAPL' or 'BTC/USD'." },
-      assetClass: {
-        type: "STRING",
-        format: "enum",
-        enum: ["stocks", "crypto", "metals", "futures"],
-        description: "Filter to one asset class. Omit for all.",
-      },
-      approvedOnly: {
-        type: "BOOLEAN",
-        description: "If true, only return signals the risk engine actually approved. Default false (returns both approved and rejected).",
-      },
-      limit: { type: "NUMBER", description: "Max signals to return, most recent first. Default 20." },
-    },
-  },
-};
-
-const GET_STRATEGY_PERFORMANCE_DECL: GeminiFunctionDeclaration = {
-  name: "get_strategy_performance",
-  description:
-    "Get real walk-forward-backtested performance for K.I.V.'s trading strategies (momentum, mean_reversion, breakout, composite) — win rate, profit factor, Sharpe ratio, max drawdown, and total return, per symbol. This reflects historical backtest results only, not a live-trading track record (K.I.V. never executes trades).",
-  parameters: {
-    type: "OBJECT",
-    properties: {
-      strategyId: {
-        type: "STRING",
-        format: "enum",
-        enum: ["momentum", "mean_reversion", "breakout", "composite"],
-        description: "Filter to one strategy. Omit for all.",
-      },
-      symbol: { type: "STRING", description: "Filter to one specific symbol." },
-      limit: { type: "NUMBER", description: "Max backtest runs to return, most recent first. Default 20." },
-    },
-  },
 };
 
 const COMPANY_DRIVE_DECL: GeminiFunctionDeclaration = {
@@ -282,51 +157,71 @@ const OUTREACH_CONTACTS_DECL: GeminiFunctionDeclaration = {
   },
 };
 
+const LAUNCH_STATUS_DECL: GeminiFunctionDeclaration = {
+  name: "get_launch_status",
+  description:
+    "Get Kivaro AI's launch tracker: days until the January 2027 launch, the current phase (Discovery, Pilots, Commitments, Launch) with its goal and days left, real counts of logged conversations, pilots, commitments, publicity actions and content against each phase's target, conversations broken down by target segment, and the most recent logged activity. Counts only reflect what has actually been logged.",
+  parameters: { type: "OBJECT", properties: {} },
+};
+
+const LOG_LAUNCH_ACTIVITY_DECL: GeminiFunctionDeclaration = {
+  name: "log_launch_activity",
+  description:
+    "Record one real launch activity in the tracker: a conversation with a prospect, a pilot started, a paid commitment or letter of intent, a publicity action (competition entered, podcast, press, newsletter feature), or a piece of content published. Only log something Andrew has said actually happened. Never log a plan, a draft, or an idea.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      kind: {
+        type: "STRING",
+        format: "enum",
+        enum: ["conversation", "pilot", "commitment", "publicity", "content"],
+      },
+      company: { type: "STRING", description: "The firm or outlet involved, if any." },
+      contact: { type: "STRING", description: "The person involved, with their title if known." },
+      segment: {
+        type: "STRING",
+        format: "enum",
+        enum: [
+          "hedge_fund",
+          "research_analytics",
+          "investor_relations",
+          "quant",
+          "venture_capital",
+          "private_equity",
+        ],
+        description: "Which target segment this belongs to, if it is about a prospect.",
+      },
+      notes: {
+        type: "STRING",
+        description: "What was said or learned: their pain points in their own words, next step, price discussed.",
+      },
+      occurredOn: {
+        type: "STRING",
+        description: "YYYY-MM-DD date it happened. Omit for today.",
+      },
+    },
+    required: ["kind"],
+  },
+};
+
+type ToolContext = { agentId: string };
+
 // name -> handler, used by the agent loop (src/lib/agents/respond.ts) once
 // Gemini requests a function call by name.
-const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
+const HANDLERS: Record<
+  string,
+  (args: Record<string, unknown>, context: ToolContext) => Promise<unknown>
+> = {
   web_search: async (args) => webSearch(String(args.query ?? "")),
   get_news_feed: async () => getNewsFeed(),
-  get_market_quotes: async (args) => {
-    const symbols = Array.isArray(args.symbols) ? (args.symbols as string[]) : undefined;
-    return symbols && symbols.length > 0
-      ? getQuotesFor(symbols.map((s) => ({ symbol: s, label: s })))
-      : getMarketQuotes();
-  },
-  get_watchlist: async () => getWatchlistForAgent(),
   get_calendar_events: async () => getCalendarEventsForAgent(),
   get_company_stats: async () => getCompanyStatsForAgent(),
   get_stripe_financials: async () => getStripeFinancials(),
-  get_alpaca_portfolio: async () => getAlpacaPortfolio(),
-  get_market_movers: async (args) =>
-    getMarketMoversForAgent({
-      periodDays: typeof args.periodDays === "number" ? args.periodDays : undefined,
-      assetClasses: args.assetClasses,
-      limit: typeof args.limit === "number" ? args.limit : undefined,
-    }),
-  get_market_sentiment_report: async () => getMarketSentimentReportForAgent(),
-  get_asset_price_history: async (args) =>
-    getAssetHistoryForAgent({
-      symbol: String(args.symbol ?? ""),
-      assetClass: typeof args.assetClass === "string" ? args.assetClass : undefined,
-      days: typeof args.days === "number" ? args.days : undefined,
-    }),
-  get_trading_signals: async (args) =>
-    getTradingSignalsForAgent({
-      symbol: typeof args.symbol === "string" ? args.symbol : undefined,
-      assetClass: typeof args.assetClass === "string" ? args.assetClass : undefined,
-      approvedOnly: typeof args.approvedOnly === "boolean" ? args.approvedOnly : undefined,
-      limit: typeof args.limit === "number" ? args.limit : undefined,
-    }),
-  get_strategy_performance: async (args) =>
-    getStrategyPerformanceForAgent({
-      strategyId: typeof args.strategyId === "string" ? args.strategyId : undefined,
-      symbol: typeof args.symbol === "string" ? args.symbol : undefined,
-      limit: typeof args.limit === "number" ? args.limit : undefined,
-    }),
   search_company_drive: async (args) => searchCompanyDriveForAgent(String(args.query ?? "")),
   get_integrations_status: async () => getIntegrationsStatus(),
   get_pipeline_status: async () => getPipelineStatusForAgent(),
+  get_launch_status: async () => getLaunchStatusForAgent(),
+  log_launch_activity: async (args, { agentId }) => logLaunchActivityForAgent(agentId, args),
   generate_showcase: async (args) => generateShowcaseForAgent(String(args.companyName ?? "")),
   create_github_issue: async (args) =>
     createGithubIssue(String(args.title ?? ""), String(args.body ?? "")),
@@ -346,65 +241,50 @@ const HANDLERS: Record<string, (args: Record<string, unknown>) => Promise<unknow
   },
 };
 
-export async function dispatchTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+export async function dispatchTool(
+  name: string,
+  args: Record<string, unknown>,
+  context: ToolContext,
+): Promise<unknown> {
   const handler = HANDLERS[name];
   if (!handler) throw new Error(`Unknown tool: ${name}`);
-  return handler(args);
+  return handler(args, context);
 }
 
 // Every agent gets integrations transparency per Andrew: "complete
-// transparency and awareness of all integrations involving Kivaro AI."
-const BASE_TOOLS: GeminiFunctionDeclaration[] = [INTEGRATIONS_STATUS_DECL, PIPELINE_STATUS_DECL];
+// transparency and awareness of all integrations involving Kivaro AI" —
+// and, for the run-up to the January 2027 launch, the launch tracker.
+const BASE_TOOLS: GeminiFunctionDeclaration[] = [
+  INTEGRATIONS_STATUS_DECL,
+  PIPELINE_STATUS_DECL,
+  LAUNCH_STATUS_DECL,
+  LOG_LAUNCH_ACTIVITY_DECL,
+];
 
-// Per-agent tool matrix, on top of BASE_TOOLS — see the approved plan for
-// the reasoning behind each assignment. Agents not listed here get no
-// extra tools: their described role has no real backing data source in
-// K.I.V. yet (social media, personal brand, contracts, code/infra
-// execution), so v1 gives them none rather than fake ones.
+// Per-agent tool matrix, on top of BASE_TOOLS, for the four launch agents
+// in roster.ts.
 export function getToolsForAgent(agentId: string): GeminiTool[] {
   const specific: GeminiFunctionDeclaration[] = (() => {
     switch (agentId) {
       case "atlas":
-      case "meridian":
-      case "cipher":
         return [WEB_SEARCH_DECL, NEWS_FEED_DECL];
-      case "oracle":
-        return [
-          MARKET_QUOTES_DECL,
-          WATCHLIST_DECL,
-          NEWS_FEED_DECL,
-          STRIPE_FINANCIALS_DECL,
-          ALPACA_PORTFOLIO_DECL,
-          GET_TRADING_SIGNALS_DECL,
-        ];
-      case "blueprint":
-        return [WEB_SEARCH_DECL, GENERATE_SHOWCASE_DECL];
-      case "forge":
-        return [WEB_SEARCH_DECL, CREATE_GITHUB_ISSUE_DECL];
-      case "broadcast":
-        return [WEB_SEARCH_DECL];
-      case "ledger":
-        return [COMPANY_STATS_DECL, STRIPE_FINANCIALS_DECL];
-      case "ticker":
-        return [
-          MARKET_QUOTES_DECL,
-          WATCHLIST_DECL,
-          ALPACA_PORTFOLIO_DECL,
-          MARKET_MOVERS_DECL,
-          MARKET_SENTIMENT_DECL,
-          ASSET_HISTORY_DECL,
-          GET_TRADING_SIGNALS_DECL,
-          GET_STRATEGY_PERFORMANCE_DECL,
-        ];
-      case "chronicle":
-        return [CALENDAR_DECL, COMPANY_STATS_DECL, COMPANY_DRIVE_DECL];
-      case "nexus":
-      case "accord":
-        return [COMPANY_DRIVE_DECL];
-      case "canvas":
-        return [SEARCH_CONSOLE_DECL];
       case "pipeline":
-        return [OUTREACH_CONTACTS_DECL, SEND_OUTREACH_EMAIL_DECL, SEND_BULK_OUTREACH_EMAILS_DECL];
+        return [
+          OUTREACH_CONTACTS_DECL,
+          SEND_OUTREACH_EMAIL_DECL,
+          SEND_BULK_OUTREACH_EMAILS_DECL,
+          GENERATE_SHOWCASE_DECL,
+        ];
+      case "pulse":
+        return [WEB_SEARCH_DECL, SEARCH_CONSOLE_DECL];
+      case "chronicle":
+        return [
+          CALENDAR_DECL,
+          COMPANY_STATS_DECL,
+          COMPANY_DRIVE_DECL,
+          STRIPE_FINANCIALS_DECL,
+          CREATE_GITHUB_ISSUE_DECL,
+        ];
       default:
         return [];
     }

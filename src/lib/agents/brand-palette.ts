@@ -32,6 +32,6 @@ Writing voice:
 - CTAs are direct action verbs (real examples: "Schedule Discovery Call", "Explore Services")
 - Tagline: "AI Automation & Intelligence for Hedge Funds"`;
 
-// Canvas (Andrew's personal brand) and Broadcast (Kivaro AI's brand) are
-// the two agents explicitly in charge of brand image/promotion.
-export const CREATIVE_BRAND_AGENTS = new Set(["canvas", "broadcast"]);
+// Pulse runs content for both Kivaro AI and Andrew's own founder brand, the
+// job Broadcast and Canvas shared before the roster was cut to four.
+export const CREATIVE_BRAND_AGENTS = new Set(["pulse"]);

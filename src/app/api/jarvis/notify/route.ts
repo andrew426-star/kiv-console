@@ -13,7 +13,7 @@ type NotifyPayload = { agentId?: unknown; message?: unknown };
 // Jarvis's own actions).
 //
 // Slack has no bot-to-bot DM support (conversations.open rejects it with
-// cannot_dm_bot, confirmed live), so Jarvis and all 15 agents share one
+// cannot_dm_bot, confirmed live), so Jarvis and every roster agent share one
 // channel (SLACK_JARVIS_CHANNEL) and this @mentions the specific target —
 // app_mention already replies for any sender, no per-agent Slack setup
 // needed beyond being a member of that one channel.

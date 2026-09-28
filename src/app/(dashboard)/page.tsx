@@ -9,6 +9,7 @@ import { ResearchSnapshot } from "@/components/overview/research-snapshot";
 import { AutonomySnapshot } from "@/components/overview/autonomy-snapshot";
 import { InboxSnapshot } from "@/components/overview/inbox-snapshot";
 import { PlaceholderCard } from "@/components/overview/placeholder-card";
+import { LaunchSnapshot } from "@/components/overview/launch-snapshot";
 
 function SectionSkeleton({ rows = 3 }: { rows?: number }) {
   return (
@@ -31,6 +32,10 @@ export default function Home() {
           Kivaro Intelligence Vectoring — the home base.
         </p>
       </div>
+
+      <Suspense fallback={<SectionSkeleton rows={2} />}>
+        <LaunchSnapshot />
+      </Suspense>
 
       <Suspense fallback={<SectionSkeleton rows={1} />}>
         <CommandCenter />

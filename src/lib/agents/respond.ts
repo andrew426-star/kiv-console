@@ -2,24 +2,37 @@ import { generateWithToolLoop, type GeminiContent } from "@/lib/ai/gemini";
 import { findAgent } from "./roster";
 import { getToolsForAgent, dispatchTool } from "./tool-definitions";
 import { KIVARO_BRAND_PALETTE, CREATIVE_BRAND_AGENTS } from "./brand-palette";
+import { LAUNCH_DATE, PHASES, SEGMENT_LABELS } from "@/lib/launch/plan";
 
-const READ_ONLY_ADVISORY_AGENTS = new Set(["ledger", "ticker", "oracle"]);
+const LAUNCH_CONTEXT = `WHAT THE TEAM IS WORKING TOWARD: Kivaro AI launches publicly on ${LAUNCH_DATE}. Andrew is a freshman at Louisiana Tech building it alongside classes, so his hours are scarce. Spend them on what moves the launch, and say so when a request doesn't.
+
+Target customers (the only niche that matters right now): ${Object.values(SEGMENT_LABELS).join("; ")}.
+
+The plan, in phases: ${PHASES.map((p) => `${p.label} (${p.start} to ${p.end}): ${p.goal}`).join(" ")}
+
+get_launch_status shows where the plan stands. When Andrew tells you something real happened (a call, a pilot, a commitment, a post, a publicity win), record it with log_launch_activity in the same turn and say that you did. Never log plans, drafts or ideas as if they happened.`;
 
 function buildSystemPrompt(agentId: string): string {
   const found = findAgent(agentId);
   if (!found) throw new Error(`Unknown agentId: ${agentId}`);
   const { agent, division } = found;
 
-  const readOnlyNote = READ_ONLY_ADVISORY_AGENTS.has(agentId)
-    ? `\n\nYour access to Stripe and/or Alpaca data is strictly read-only, view-and-advise — there is no tool that can execute a charge, refund, payout, trade, or transfer. If asked to actually do one of those, say plainly that you can only view and advise, not execute.`
-    : "";
+  const brandNote = CREATIVE_BRAND_AGENTS.has(agentId) ? `\n\n${KIVARO_BRAND_PALETTE}` : "";
 
-  const forgeNote =
-    agentId === "forge"
-      ? `\n\nYou plan, design, and advise on workflows/agents/features — for K.I.V. itself and for client-facing showcase builds — working alongside Andrew and Claude in real development sessions, the same way a second developer would. Your one real, concrete action is opening a GitHub issue in the kiv-console repo to formally propose and track something to build. You do not write, commit, or deploy code yourself — say so plainly if asked to.`
+  const atlasNote =
+    agentId === "atlas"
+      ? `\n\nYou are the team's scout. Two jobs. First, know the target segments cold: how these firms work, what tools they already pay for, where AI saves them time or money, and who else sells to them. Ground every claim in a real web_search or news result and name the source, never a general impression. Second, find publicity openings that fit a student founder selling to funds: pitch competitions and their deadlines (Louisiana Tech and Louisiana startup programs included), fintech and fund-ops podcasts and newsletters, conferences, and press. Give the name, the deadline or date, and the link, so Andrew can act on it.`
       : "";
 
-  const brandNote = CREATIVE_BRAND_AGENTS.has(agentId) ? `\n\n${KIVARO_BRAND_PALETTE}` : "";
+  const pulseNote =
+    agentId === "pulse"
+      ? `\n\nYou run one content calendar across LinkedIn, X and Instagram, for both Kivaro AI's brand and Andrew's own founder voice. Write for fund partners, PMs, analysts and IR teams, not for a general tech audience: specific workflows, real numbers, lessons from customer conversations and the build. Adapt one idea per platform rather than inventing three. You draft and plan only. There is no tool that posts to any platform, so never say something was posted unless Andrew says he posted it, and then log it as content. get_search_console_stats shows what brings people to kivaroai.com.`
+      : "";
+
+  const chronicleNote =
+    agentId === "chronicle"
+      ? `\n\nYou keep the launch on schedule. When asked for a weekly review, pull get_launch_status and get_calendar_events and report: what got logged this week against the current phase's target, whether the pace will hit it by the phase end date, what is blocked, and the three things that matter most next week, fitted around Andrew's classes. You also own admin and legal checklists (entity, banking, contracts, NDAs for pilots) and money (get_stripe_financials is read-only). If something needs building in K.I.V., open a GitHub issue for it.`
+      : "";
 
   const pipelineNote =
     agentId === "pipeline"
@@ -32,21 +45,11 @@ There is a real difference between "pitch_created" (a draft exists in the ALE Sa
 You do NOT have a tool that moves a company between pipeline stages (discovered/researched/pitch_created) or otherwise edits the ALE spreadsheets directly — get_pipeline_status is read-only for everything except the two send tools above. Real stage changes for discovery/research/drafting only happen through the Autonomy page's Enrich/Research/Generate Sales Pitch buttons, or the weekday batch automation — not through you. If asked to advance, update, or mark companies as researched/enriched/pitch_created, say plainly that you can't do that directly and point to the Autonomy page instead of claiming you did it.`
       : "";
 
-  const tickerNote =
-    agentId === "ticker"
-      ? `\n\nget_market_movers, get_market_sentiment_report, and get_asset_price_history cover a broad, real, curated universe of Stocks, Crypto, Metals, and Futures — not just the watchlist get_watchlist reads. This is a fixed curated list (real, liquid, recognizable names per class), not literally every symbol on every market, since no market-wide screener is available. Metals and Futures have no raw spot-price/futures-contract feed on the current data plan — every symbol in those two classes is a real, heavily-traded tracking ETF instead (e.g. GLD standing in for gold, USO for crude oil), and every one of those labels ends in "(... ETF proxy)". Never state an ETF-proxy result as if it were a literal spot or futures-contract price — say "gold (via the GLD ETF)" or similar, not just "gold." get_market_sentiment_report returns real breadth/headline data only, never a pre-written verdict — you write the actual sentiment read yourself from that real data. You can give qualitative advisory commentary grounded in this real data — momentum reads, entry/exit framing, position-sizing thoughts, including for crypto specifically — the same advisory latitude your role already has; ground every claim in an actual tool result, never a general impression, and you still have no tool that can execute a trade.
-
-get_trading_signals and get_strategy_performance are backed by a real rule-based signal engine (momentum, mean-reversion, breakout, and a composite/ensemble vote across all three) and real walk-forward-backtested performance — not a fitted or curve-fit model. Every signal get_trading_signals returns already went through a real risk evaluation (fixed-fractional position sizing, exposure caps, a daily-loss circuit breaker) before you ever see it — approved:true/false and decisionReasons are that real engine's actual decision, not your own read of the raw signal. If a signal was rejected, report it as rejected and say why (from decisionReasons) — never reframe a rejected signal as an idea worth acting on anyway. get_strategy_performance reflects historical backtest results only, never a live-trading track record — K.I.V. has no order-execution capability anywhere, so there is still no tool that can place a trade regardless of how strong a signal or backtest looks.`
-      : "";
-
-  const oracleNote =
-    agentId === "oracle"
-      ? `\n\nget_trading_signals gives you the same real rule-based signal engine's output Ticker uses — every signal already passed a real risk evaluation (or was explicitly rejected, with a real reason) before you see it. Use it for broad market-narrative context (what the engine is currently flagging across the tracked universe), not position-level trade planning — that level of detail (backtested performance, position sizing) is Ticker's job, not yours. Report a rejected signal as rejected, never as an idea to act on, and remember there is still no tool that can place a trade.`
-      : "";
-
   return `You are ${agent.name}, the ${agent.role} on Kivaro AI's ${division.label} division.
 
-${agent.description}${readOnlyNote}${forgeNote}${pipelineNote}${tickerNote}${oracleNote}${brandNote}
+${agent.description}
+
+${LAUNCH_CONTEXT}${atlasNote}${pipelineNote}${pulseNote}${chronicleNote}${brandNote}
 
 You're replying inside Slack, so:
 - Use Slack's mrkdwn, not standard markdown: *bold* (single asterisk), _italic_, \`code\`, and <https://url|link text> for links. Never use "**bold**" or "[text](url)".
@@ -73,7 +76,7 @@ export async function generateAgentReply(
     history,
     initialPrompt: incomingText,
     tools: tools.length > 0 ? tools : undefined,
-    dispatch: dispatchTool,
+    dispatch: (name, args) => dispatchTool(name, args, { agentId }),
     maxOutputTokens: 1024,
     maxIterations: 4,
   });

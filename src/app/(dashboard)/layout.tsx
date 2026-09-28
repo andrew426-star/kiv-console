@@ -18,6 +18,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           >
             K.I.V.
           </Link>
+          <Link href="/launch" className="text-muted-foreground transition-colors hover:text-foreground">
+            Launch
+          </Link>
           <Link href="/company" className="text-muted-foreground transition-colors hover:text-foreground">
             Company Dashboard
           </Link>
