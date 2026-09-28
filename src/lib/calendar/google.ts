@@ -107,6 +107,9 @@ export type GoogleCalendarEvent = {
   end: string | null;
   allDay: boolean;
   htmlLink: string;
+  // Set on every instance of a repeating event (singleEvents=true expands
+  // them), so the Calendar page can fold a week of classes into one row.
+  recurringEventId: string | null;
 };
 
 export async function fetchUpcomingEvents(
@@ -121,7 +124,9 @@ export async function fetchUpcomingEvents(
     timeMax,
     singleEvents: "true",
     orderBy: "startTime",
-    maxResults: "50",
+    // A full class schedule is ~20 instances a week; 50 cut the 14-day
+    // window short.
+    maxResults: "250",
   });
 
   const res = await fetch(
@@ -134,6 +139,7 @@ export async function fetchUpcomingEvents(
       id: string;
       summary?: string;
       htmlLink: string;
+      recurringEventId?: string;
       start: { date?: string; dateTime?: string };
       end: { date?: string; dateTime?: string };
     }>;
@@ -146,6 +152,7 @@ export async function fetchUpcomingEvents(
     end: item.end.dateTime ?? item.end.date ?? null,
     allDay: !item.start.dateTime,
     htmlLink: item.htmlLink,
+    recurringEventId: item.recurringEventId ?? null,
   }));
 }
 
