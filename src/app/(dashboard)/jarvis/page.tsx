@@ -61,7 +61,7 @@ export default function JarvisPage() {
       <div>
         <h1 className="font-heading text-2xl font-bold text-gradient-green">Jarvis</h1>
         <p className="text-sm text-muted-foreground">
-          Andrew&apos;s separate personal assistant app — not one of K.I.V.&apos;s 15 agents, but
+          Andrew&apos;s separate personal assistant app — not one of K.I.V.&apos;s Slack agents, but
           able to DM them directly in Slack. Everything it does shows up here.
         </p>
       </div>

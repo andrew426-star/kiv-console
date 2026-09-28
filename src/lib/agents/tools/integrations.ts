@@ -44,7 +44,7 @@ export function getIntegrationsStatus(): IntegrationStatus[] {
     {
       name: "Gemini",
       configured: Boolean(process.env.GEMINI_API_KEY),
-      description: "Research brief + all 15 Slack agents' replies (free tier).",
+      description: "Research brief + the Slack agents' replies (free tier).",
     },
     {
       name: "Tavily",
@@ -69,7 +69,7 @@ export function getIntegrationsStatus(): IntegrationStatus[] {
     {
       name: "Slack",
       configured: true,
-      description: "15 agents, each its own real Slack app/bot identity.",
+      description: "4 launch agents (Atlas, Pipeline, Pulse, Chronicle), each its own real Slack app/bot identity.",
     },
     {
       name: "Supabase",

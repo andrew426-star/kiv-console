@@ -22,7 +22,7 @@ type SlackEventPayload = {
   };
 };
 
-// One dynamic route serves all 15 agents — each Slack app's Event
+// One dynamic route serves every roster agent — each Slack app's Event
 // Subscriptions Request URL points at /api/slack/events/<agent-id>, and
 // this route looks up that agent's own bot token + signing secret. No
 // Supabase session exists here (see PUBLIC_PATHS in proxy.ts); auth is
