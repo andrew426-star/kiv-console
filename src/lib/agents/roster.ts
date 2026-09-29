@@ -78,7 +78,7 @@ export const DIVISIONS: Division[] = [
         name: "Pulse",
         role: "Content Voice",
         description:
-          "Plans and drafts one content calendar across LinkedIn, X and Instagram for Kivaro AI and Andrew, written for a fund-industry audience and built around the launch.",
+          "Plans and drafts Andrew's founder-led content for his personal LinkedIn and X, with Kivaro AI's company page resharing, written for a fund-industry audience and built around the launch.",
         model: "gemini-3.1-flash-lite",
       },
     ],

@@ -48,7 +48,7 @@ export const AGENT_JOBS: AgentJob[] = [
     title: "Weekly content plan",
     cron: "30 13 * * 1", // Mondays 8:30am CT
     prompt:
-      "Draft this week's content plan around the current launch phase (check get_launch_status): 3 LinkedIn posts, 3 X posts and 2 Instagram posts for Kivaro AI and Andrew's founder voice, written for fund partners, PMs, analysts and IR teams. For each give the day, the platform, the hook line, and a full draft. These are drafts for Andrew to edit and post himself.",
+      "Draft this week's content plan around the current launch phase (check get_launch_status), in Andrew's own founder voice: 3 posts for his personal LinkedIn and 4 for his personal X, written for fund partners, PMs, analysts and IR teams. Mark the one LinkedIn post the Kivaro AI company page should reshare. For each give the day, the platform, the hook line, and a full draft. These are drafts for Andrew to edit and post himself.",
   },
   {
     id: "pulse-build-in-public",
