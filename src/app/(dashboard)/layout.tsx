@@ -39,9 +39,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Link href="/agents" className="text-muted-foreground transition-colors hover:text-foreground">
             Agents
           </Link>
-          <Link href="/security" className="text-muted-foreground transition-colors hover:text-foreground">
-            Security
-          </Link>
           <Link href="/autonomy" className="text-muted-foreground transition-colors hover:text-foreground">
             Autonomy
           </Link>

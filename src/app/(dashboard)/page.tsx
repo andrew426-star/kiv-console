@@ -8,7 +8,6 @@ import { MarketSnapshot } from "@/components/overview/market-snapshot";
 import { ResearchSnapshot } from "@/components/overview/research-snapshot";
 import { AutonomySnapshot } from "@/components/overview/autonomy-snapshot";
 import { InboxSnapshot } from "@/components/overview/inbox-snapshot";
-import { PlaceholderCard } from "@/components/overview/placeholder-card";
 import { LaunchSnapshot } from "@/components/overview/launch-snapshot";
 
 function SectionSkeleton({ rows = 3 }: { rows?: number }) {
@@ -57,12 +56,7 @@ export default function Home() {
         <NewsFeed />
       </Suspense>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-        <PlaceholderCard
-          title="Security"
-          description="Ultron will monitor Kivaro's own infrastructure — Railway, Vercel, Supabase, GitHub — here once it's built."
-          href="/security"
-        />
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <Suspense fallback={<SectionSkeleton />}>
           <AutonomySnapshot />
         </Suspense>

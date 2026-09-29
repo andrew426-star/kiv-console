@@ -14,8 +14,8 @@ Built incrementally, module by module:
 4. Intel Hub — crypto/equities/forex/commodities, watchlists, price alerts.
 5. News feed — curated Fintech/AI/Alt-Investment feed.
 6. Research — AI-written daily brief (Claude API), on a Vercel Cron job.
-7. Overview (home page) — assembles everything above; placeholders for
-   Ultron security status and ALE activity until those systems exist.
+7. Overview (home page) — assembles everything above, with the launch
+   countdown and ALE activity.
 8. Auth/roles hardening.
 9. CAD Engine (stretch, deprioritized).
 
