@@ -62,6 +62,21 @@ export function functionCallParts(
   );
 }
 
+// Gemini answers 503 "model is currently experiencing high demand" in
+// bursts, and 429 when the per-minute quota is briefly exceeded. Both clear
+// within seconds, so a short backoff turns what used to be a failed Slack
+// reply or ALE step (see the 2026-09-28 weekday batch) into a slow one.
+const RETRYABLE_STATUS = new Set([429, 500, 503]);
+const RETRY_DELAYS_MS = [1500, 4000, 9000];
+
+async function postWithRetry(url: string, body: string): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt >= RETRY_DELAYS_MS.length) return res;
+    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+  }
+}
+
 export async function generateContent(params: {
   systemInstruction?: string;
   contents: GeminiContent[];
@@ -71,10 +86,9 @@ export async function generateContent(params: {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
 
-  const res = await fetch(`${GEMINI_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const res = await postWithRetry(
+    `${GEMINI_BASE}/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    JSON.stringify({
       contents: params.contents,
       ...(params.systemInstruction
         ? { systemInstruction: { parts: [{ text: params.systemInstruction }] } }
@@ -82,7 +96,7 @@ export async function generateContent(params: {
       ...(params.tools ? { tools: params.tools } : {}),
       generationConfig: { maxOutputTokens: params.maxOutputTokens ?? 1024 },
     }),
-  });
+  );
 
   if (!res.ok) throw new Error(`Gemini request failed: ${await res.text()}`);
 

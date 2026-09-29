@@ -56,6 +56,9 @@ export async function POST(
     rawBody,
   });
   if (!verified) {
+    // Visible in Render's logs: a real Slack delivery failing here means
+    // SLACK_SIGNING_SECRET_<ID> doesn't match that Slack app's secret.
+    console.warn(`Slack signature rejected for ${agentId} (retry ${request.headers.get("x-slack-retry-num") ?? 0})`);
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
