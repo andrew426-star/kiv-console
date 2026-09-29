@@ -61,23 +61,37 @@ You're replying inside Slack, so:
 - If this is a reply within an ongoing thread, you'll see the earlier messages first — treat it as a continuing conversation (e.g. "yes" or "go with that" refers back to what you just said), not a fresh request. Prior user-role turns prefixed "Andrew:" or "Another agent:" tell you who actually said them.`;
 }
 
+const SCHEDULED_NOTE = `
+
+THIS IS A SCHEDULED REPORT, not a reply to a message: nobody asked for it just now, and it will be posted to the team channel as-is. Gather what you need with your read-only tools, then write the report. Tools that send, create or log anything are unavailable in scheduled runs; if something should be done, recommend it for Andrew to approve.`;
+
 export async function generateAgentReply(
   agentId: string,
   incomingText: string,
   history: GeminiContent[] = [],
+  { scheduled = false }: { scheduled?: boolean } = {},
 ): Promise<string> {
   const found = findAgent(agentId);
   if (!found) throw new Error(`Unknown agentId: ${agentId}`);
 
-  const tools = getToolsForAgent(agentId);
+  const tools = getToolsForAgent(agentId, { scheduled });
+  // Only tools actually offered to this agent in this run can execute — a
+  // model naming any other tool (e.g. a send tool withheld from a scheduled
+  // job) gets an error back instead of the action.
+  const allowed = new Set(
+    tools.flatMap((t) => ("functionDeclarations" in t ? t.functionDeclarations.map((d) => d.name) : [])),
+  );
 
   return generateWithToolLoop({
-    systemInstruction: buildSystemPrompt(agentId),
+    systemInstruction: buildSystemPrompt(agentId) + (scheduled ? SCHEDULED_NOTE : ""),
     history,
     initialPrompt: incomingText,
     tools: tools.length > 0 ? tools : undefined,
-    dispatch: (name, args) => dispatchTool(name, args, { agentId }),
-    maxOutputTokens: 1024,
+    dispatch: (name, args) => {
+      if (!allowed.has(name)) throw new Error(`Tool ${name} is not available to ${agentId} here`);
+      return dispatchTool(name, args, { agentId });
+    },
+    maxOutputTokens: scheduled ? 2048 : 1024,
     maxIterations: 4,
   });
 }

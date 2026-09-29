@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
   "/login",
   "/api/health",
   "/api/agents/log",
+  "/api/agents/jobs",
   "/api/slack/events",
   "/api/ale/batch",
   "/api/ale/outreach-drip",

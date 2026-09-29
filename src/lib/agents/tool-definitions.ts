@@ -13,6 +13,7 @@ import { getSearchConsoleStatsForAgent } from "./tools/search-console";
 import { sendOutreachEmailForAgent, sendBulkOutreachEmailsForAgent } from "./tools/send-outreach-email";
 import { getOutreachContactsForAgent } from "./tools/outreach-contacts";
 import { getLaunchStatusForAgent, logLaunchActivityForAgent } from "./tools/launch";
+import { getTasksDueForAgent } from "./tools/tasks-due";
 
 const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   name: "get_news_feed",
@@ -204,6 +205,18 @@ const LOG_LAUNCH_ACTIVITY_DECL: GeminiFunctionDeclaration = {
   },
 };
 
+const TASKS_DUE_DECL: GeminiFunctionDeclaration = {
+  name: "get_tasks_due",
+  description:
+    "Get open tasks from Kivaro's Company Dashboard board (launch phases and Andrew's Founder Development goals) that are due within the next N days or already overdue, soonest first, with project names and overdue flags.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      withinDays: { type: "NUMBER", description: "How many days ahead to look. Default 7." },
+    },
+  },
+};
+
 type ToolContext = { agentId: string };
 
 // name -> handler, used by the agent loop (src/lib/agents/respond.ts) once
@@ -221,6 +234,8 @@ const HANDLERS: Record<
   get_integrations_status: async () => getIntegrationsStatus(),
   get_pipeline_status: async () => getPipelineStatusForAgent(),
   get_launch_status: async () => getLaunchStatusForAgent(),
+  get_tasks_due: async (args) =>
+    getTasksDueForAgent(typeof args.withinDays === "number" ? args.withinDays : undefined),
   log_launch_activity: async (args, { agentId }) => logLaunchActivityForAgent(agentId, args),
   generate_showcase: async (args) => generateShowcaseForAgent(String(args.companyName ?? "")),
   create_github_issue: async (args) =>
@@ -263,7 +278,21 @@ const BASE_TOOLS: GeminiFunctionDeclaration[] = [
 
 // Per-agent tool matrix, on top of BASE_TOOLS, for the four launch agents
 // in roster.ts.
-export function getToolsForAgent(agentId: string): GeminiTool[] {
+// Tools that act on the outside world or write records. A scheduled job
+// (src/lib/agents/jobs.ts) runs with nobody there to confirm an action, so
+// these are withheld from it.
+const ACTING_TOOLS = new Set([
+  "send_outreach_email",
+  "send_bulk_outreach_emails",
+  "create_github_issue",
+  "log_launch_activity",
+  "generate_showcase",
+]);
+
+export function getToolsForAgent(
+  agentId: string,
+  { scheduled = false }: { scheduled?: boolean } = {},
+): GeminiTool[] {
   const specific: GeminiFunctionDeclaration[] = (() => {
     switch (agentId) {
       case "atlas":
@@ -280,6 +309,7 @@ export function getToolsForAgent(agentId: string): GeminiTool[] {
       case "chronicle":
         return [
           CALENDAR_DECL,
+          TASKS_DUE_DECL,
           COMPANY_STATS_DECL,
           COMPANY_DRIVE_DECL,
           STRIPE_FINANCIALS_DECL,
@@ -290,5 +320,8 @@ export function getToolsForAgent(agentId: string): GeminiTool[] {
     }
   })();
 
-  return [{ functionDeclarations: [...BASE_TOOLS, ...specific] }];
+  const declarations = [...BASE_TOOLS, ...specific].filter(
+    (d) => !scheduled || !ACTING_TOOLS.has(d.name),
+  );
+  return [{ functionDeclarations: declarations }];
 }
