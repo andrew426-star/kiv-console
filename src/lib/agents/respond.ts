@@ -3,6 +3,7 @@ import { findAgent } from "./roster";
 import { getToolsForAgent, dispatchTool } from "./tool-definitions";
 import { KIVARO_BRAND_PALETTE, CREATIVE_BRAND_AGENTS } from "./brand-palette";
 import { LAUNCH_DATE, PHASES, SEGMENT_LABELS } from "@/lib/launch/plan";
+import { nowForPrompt } from "@/lib/time";
 
 const LAUNCH_CONTEXT = `WHAT THE TEAM IS WORKING TOWARD: Kivaro AI launches publicly on ${LAUNCH_DATE}. Andrew is a freshman at Louisiana Tech building it alongside classes, so his hours are scarce. Spend them on what moves the launch, and say so when a request doesn't.
 
@@ -48,6 +49,8 @@ You do NOT have a tool that moves a company between pipeline stages (discovered/
   return `You are ${agent.name}, the ${agent.role} on Kivaro AI's ${division.label} division.
 
 ${agent.description}
+
+${nowForPrompt()}
 
 ${LAUNCH_CONTEXT}${atlasNote}${pipelineNote}${pulseNote}${chronicleNote}${brandNote}
 

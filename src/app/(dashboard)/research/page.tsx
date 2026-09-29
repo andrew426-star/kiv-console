@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getLatestBrief, isStale } from "@/lib/research/queries";
 import { generateBrief, type Brief } from "@/lib/research/generate";
 import { RegenerateButton } from "@/components/research/regenerate-button";
+import { formatDateTime } from "@/lib/time";
 
 async function ResearchContent() {
   let brief: Brief | null = await getLatestBrief();
@@ -24,7 +25,7 @@ async function ResearchContent() {
           <CardTitle className="font-heading">Daily Brief</CardTitle>
           {brief ? (
             <p className="text-xs text-muted-foreground">
-              Generated {new Date(brief.generatedAt).toLocaleString()}
+              Generated {formatDateTime(brief.generatedAt)}
             </p>
           ) : null}
         </div>

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getJarvisActivity } from "@/lib/agents/jarvis-activity";
 import { StatusBadge } from "@/components/agents/status-badge";
+import { formatDateTime } from "@/lib/time";
 
 function SectionSkeleton({ rows = 6 }: { rows?: number }) {
   return (
@@ -45,7 +46,7 @@ async function JarvisActivity() {
                 ) : null}
               </div>
               <span className="shrink-0 text-xs text-muted-foreground">
-                {new Date(entry.createdAt).toLocaleString()}
+                {formatDateTime(entry.createdAt)}
               </span>
             </div>
           ))

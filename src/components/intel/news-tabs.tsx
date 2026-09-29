@@ -2,6 +2,7 @@
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import type { NewsArticle } from "@/lib/news/newsapi";
+import { formatDate } from "@/lib/time";
 
 type CategoryFeed = {
   id: string;
@@ -38,7 +39,7 @@ export function NewsTabs({ categories }: { categories: CategoryFeed[] }) {
               >
                 <span className="font-medium">{article.title}</span>
                 <span className="text-xs text-muted-foreground">
-                  {article.source} · {new Date(article.publishedAt).toLocaleDateString()}
+                  {article.source} · {formatDate(article.publishedAt)}
                 </span>
               </a>
             ))

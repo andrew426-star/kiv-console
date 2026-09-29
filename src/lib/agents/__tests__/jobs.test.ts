@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AGENT_JOBS } from "../jobs";
+import { AGENT_JOBS, centralUtcOffsetHours, findJob, utcCron, utcCrons } from "../jobs";
 import { findAgent } from "../roster";
 import { getToolsForAgent } from "../tool-definitions";
 
@@ -14,18 +14,38 @@ function declaredTools(agentId: string, scheduled: boolean): string[] {
 }
 
 describe("scheduled agent jobs", () => {
-  it("have unique ids and schedules, and belong to roster agents", () => {
+  it("have unique ids and Central times, and belong to roster agents", () => {
     expect(new Set(AGENT_JOBS.map((j) => j.id)).size).toBe(AGENT_JOBS.length);
-    expect(new Set(AGENT_JOBS.map((j) => j.cron)).size).toBe(AGENT_JOBS.length);
+    const all = AGENT_JOBS.flatMap((j) => [utcCrons(j).cdt, utcCrons(j).cst]);
+    expect(new Set(all).size).toBe(all.length);
     for (const job of AGENT_JOBS) expect(findAgent(job.agentId), job.id).not.toBeNull();
   });
 
-  it("are all wired into the GitHub workflow with matching schedules", () => {
+  it("are wired into the workflow at both their daylight- and standard-time UTC crons", () => {
     for (const job of AGENT_JOBS) {
-      expect(workflow, job.id).toContain(`- cron: "${job.cron}"`);
-      expect(workflow, job.id).toContain(`"${job.cron}") job=${job.id} ;;`);
+      for (const cron of Object.values(utcCrons(job))) {
+        expect(workflow, `${job.id} ${cron}`).toContain(`- cron: "${cron}"`);
+        expect(workflow, `${job.id} ${cron}`).toContain(`"${cron}") job=${job.id} ;;`);
+      }
       expect(workflow, job.id).toContain(`- ${job.id}`);
     }
+  });
+
+  it("convert Central wall-clock times to UTC, including across midnight", () => {
+    const standup = findJob("pipeline-standup")!;
+    expect(utcCron(standup, 5)).toBe("0 14 * * 1,2,3,4,5"); // 9am CDT
+    expect(utcCron(standup, 6)).toBe("0 15 * * 1,2,3,4,5"); // 9am CST
+    const review = findJob("chronicle-weekly-review")!;
+    expect(utcCron(review, 5)).toBe("0 23 * * 0"); // Sun 6pm CDT
+    expect(utcCron(review, 6)).toBe("0 0 * * 1"); // Sun 6pm CST is Monday in UTC
+  });
+
+  it("knows which offset Central is on", () => {
+    expect(centralUtcOffsetHours(new Date("2026-09-29T17:00:00Z"))).toBe(5); // CDT
+    expect(centralUtcOffsetHours(new Date("2026-12-01T17:00:00Z"))).toBe(6); // CST
+    // Clocks fall back at 2am CDT on 2026-11-01 (07:00 UTC).
+    expect(centralUtcOffsetHours(new Date("2026-11-01T06:30:00Z"))).toBe(5);
+    expect(centralUtcOffsetHours(new Date("2026-11-01T07:30:00Z"))).toBe(6);
   });
 
   it("never get tools that send, create or log", () => {

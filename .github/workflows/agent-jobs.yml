@@ -1,22 +1,29 @@
 name: Agent launch jobs
 
 # Scheduled reports from the Slack agents for the January 2027 launch.
-# Each schedule maps to one job in src/lib/agents/jobs.ts (the source of
-# truth for prompts and times — src/lib/agents/__tests__/jobs.test.ts fails
-# if this file drifts from it). The job runs the agent and posts to the team
-# channel; scheduled runs can read and draft but never send or log.
-#
-# GitHub cron is UTC. Times below are US Central daylight time; after the
-# November clock change they land an hour earlier.
+# Each job is defined in src/lib/agents/jobs.ts at a US Central time (the
+# source of truth; src/lib/agents/__tests__/jobs.test.ts fails if this file
+# drifts from it). GitHub cron is UTC-only, so every job is listed at two
+# UTC times, one for daylight time (CDT, UTC-5) and one for standard time
+# (CST, UTC-6), and the route runs only the one matching Central's current
+# offset. The report is posted to the team channel; scheduled runs can read
+# and draft but never send or log.
 on:
   schedule:
-    - cron: "0 14 * * 1-5" # pipeline-standup, weekdays 9:00am
-    - cron: "0 13 * * 1" # atlas-segment-intel, Mon 8:00am
-    - cron: "30 13 * * 1" # pulse-content-plan, Mon 8:30am
-    - cron: "0 17 * * 3" # chronicle-midweek-pace, Wed 12:00pm
-    - cron: "0 13 * * 4" # atlas-publicity-radar, Thu 8:00am
-    - cron: "0 17 * * 4" # pulse-build-in-public, Thu 12:00pm
-    - cron: "0 23 * * 0" # chronicle-weekly-review, Sun 6:00pm
+    - cron: "0 14 * * 1,2,3,4,5" # pipeline-standup, weekdays 9:00am CDT
+    - cron: "0 15 * * 1,2,3,4,5" # pipeline-standup, weekdays 9:00am CST
+    - cron: "0 13 * * 1" # atlas-segment-intel, Mon 8:00am CDT
+    - cron: "0 14 * * 1" # atlas-segment-intel, Mon 8:00am CST
+    - cron: "30 13 * * 1" # pulse-content-plan, Mon 8:30am CDT
+    - cron: "30 14 * * 1" # pulse-content-plan, Mon 8:30am CST
+    - cron: "0 17 * * 3" # chronicle-midweek-pace, Wed 12:00pm CDT
+    - cron: "0 18 * * 3" # chronicle-midweek-pace, Wed 12:00pm CST
+    - cron: "0 13 * * 4" # atlas-publicity-radar, Thu 8:00am CDT
+    - cron: "0 14 * * 4" # atlas-publicity-radar, Thu 8:00am CST
+    - cron: "0 17 * * 4" # pulse-build-in-public, Thu 12:00pm CDT
+    - cron: "0 18 * * 4" # pulse-build-in-public, Thu 12:00pm CST
+    - cron: "0 23 * * 0" # chronicle-weekly-review, Sun 6:00pm CDT
+    - cron: "0 0 * * 1" # chronicle-weekly-review, Sun 6:00pm CST
   workflow_dispatch:
     inputs:
       job:
@@ -43,20 +50,31 @@ jobs:
             job="${{ inputs.job }}"
           else
             case "${{ github.event.schedule }}" in
-              "0 14 * * 1-5") job=pipeline-standup ;;
+              "0 14 * * 1,2,3,4,5") job=pipeline-standup ;;
+              "0 15 * * 1,2,3,4,5") job=pipeline-standup ;;
               "0 13 * * 1") job=atlas-segment-intel ;;
+              "0 14 * * 1") job=atlas-segment-intel ;;
               "30 13 * * 1") job=pulse-content-plan ;;
+              "30 14 * * 1") job=pulse-content-plan ;;
               "0 17 * * 3") job=chronicle-midweek-pace ;;
+              "0 18 * * 3") job=chronicle-midweek-pace ;;
               "0 13 * * 4") job=atlas-publicity-radar ;;
+              "0 14 * * 4") job=atlas-publicity-radar ;;
               "0 17 * * 4") job=pulse-build-in-public ;;
+              "0 18 * * 4") job=pulse-build-in-public ;;
               "0 23 * * 0") job=chronicle-weekly-review ;;
+              "0 0 * * 1") job=chronicle-weekly-review ;;
               *) echo "No job for schedule '${{ github.event.schedule }}'"; exit 1 ;;
             esac
           fi
           echo "job=$job" >> "$GITHUB_OUTPUT"
       - name: Run ${{ steps.pick.outputs.job }}
         run: |
-          # Render may need to wake the service first; allow a long timeout.
-          curl --fail-with-body --max-time 300 -X POST \
+          # A scheduled run passes the cron that fired, so the route can skip
+          # the copy meant for the other half of the year. A manual run
+          # passes none and always runs. Render may need to wake the
+          # service first; allow a long timeout.
+          curl --fail-with-body --max-time 300 -G -X POST \
+            --data-urlencode "schedule=${{ github.event.schedule }}" \
             -H "Authorization: Bearer ${{ secrets.ALE_BATCH_API_KEY }}" \
             https://kiv-console.onrender.com/api/agents/jobs/${{ steps.pick.outputs.job }}

@@ -9,6 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { RoleSelect } from "./role-select";
+import { formatDate } from "@/lib/time";
 
 export async function UserManagementTable() {
   const profiles = await getProfiles();
@@ -42,7 +43,7 @@ export async function UserManagementTable() {
                     <RoleSelect profileId={profile.id} role={profile.role} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(profile.created_at).toLocaleDateString()}
+                    {formatDate(profile.created_at)}
                   </TableCell>
                 </TableRow>
               ))

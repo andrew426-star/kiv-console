@@ -8,6 +8,7 @@ import { advanceDeliverableStage, deleteDeliverableRecord } from "@/lib/company/
 import { Button } from "@/components/ui/button";
 import { DeliverableFormDialog } from "./deliverable-form-dialog";
 import { DeleteButton } from "./delete-button";
+import { formatDateOnly } from "@/lib/time";
 
 const STAGES: { key: DeliverableStage; label: string }[] = [
   { key: "backlog", label: "Backlog" },
@@ -51,7 +52,7 @@ export async function ClientPortalBoard() {
                     <p className="font-medium">{item.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {client?.name ?? "No client"}
-                      {item.due_date ? ` · ${new Date(item.due_date).toLocaleDateString()}` : ""}
+                      {item.due_date ? ` · ${formatDateOnly(item.due_date)}` : ""}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {stage.key !== "delivered" ? (

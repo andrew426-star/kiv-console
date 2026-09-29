@@ -4,10 +4,12 @@
 // Jarvis keeps a copy in app/tools/launch_tracker.py (jarvis repo), so
 // change both together.
 
+import { TIME_ZONE } from "@/lib/time";
+
 export const LAUNCH_DATE = "2027-01-12";
 
 // Dates are Andrew's local calendar days in Ruston, not UTC instants.
-export const LAUNCH_TIME_ZONE = "America/Chicago";
+export const LAUNCH_TIME_ZONE = TIME_ZONE;
 
 export const ACTIVITY_KINDS = ["conversation", "pilot", "commitment", "publicity", "content"] as const;
 export type ActivityKind = (typeof ACTIVITY_KINDS)[number];

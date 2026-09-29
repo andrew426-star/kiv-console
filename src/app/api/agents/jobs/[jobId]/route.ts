@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { findJob } from "@/lib/agents/jobs";
+import { centralUtcOffsetHours, findJob, utcCron } from "@/lib/agents/jobs";
 import { generateAgentReply } from "@/lib/agents/respond";
 import { logAgentActivity } from "@/lib/agents/log";
 import { getSlackCredentials } from "@/lib/slack/credentials";
@@ -26,6 +26,17 @@ export async function POST(
   const { jobId } = await params;
   const job = findJob(jobId);
   if (!job) return NextResponse.json({ error: `Unknown job: ${jobId}` }, { status: 404 });
+
+  // Each job is scheduled at two UTC times (CDT and CST). The workflow
+  // passes the cron that fired; only the one matching Central's current
+  // offset runs. A manual run passes no schedule and always runs.
+  const firedBy = request.nextUrl.searchParams.get("schedule");
+  if (firedBy) {
+    const expected = utcCron(job, centralUtcOffsetHours());
+    if (firedBy !== expected) {
+      return NextResponse.json({ ok: true, job: job.id, skipped: `Not this season's schedule (${expected} is)` });
+    }
+  }
 
   // A dedicated launch channel if one is set, otherwise the shared channel
   // Jarvis and every agent bot are already in.

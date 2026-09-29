@@ -1,5 +1,6 @@
 import { getNewsFeed, isNewsApiConfigured } from "@/lib/news/newsapi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDate } from "@/lib/time";
 
 export async function NewsFeed() {
   const articles = await getNewsFeed();
@@ -28,7 +29,7 @@ export async function NewsFeed() {
             >
               <span className="font-medium">{article.title}</span>
               <span className="text-xs text-muted-foreground">
-                {article.source} · {new Date(article.publishedAt).toLocaleDateString()}
+                {article.source} · {formatDate(article.publishedAt)}
               </span>
             </a>
           ))

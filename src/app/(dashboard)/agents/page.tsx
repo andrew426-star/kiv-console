@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DIVISIONS, findAgent } from "@/lib/agents/roster";
 import { getActivitySnapshot } from "@/lib/agents/activity";
 import { StatusBadge } from "@/components/agents/status-badge";
+import { formatDateTime } from "@/lib/time";
 
 const AGENT_COUNT = DIVISIONS.reduce((n, d) => n + d.agents.length, 0);
 
@@ -72,7 +73,7 @@ async function AgentsContent() {
                     </p>
                     <p className="mt-2 text-[11px] text-muted-foreground/70">
                       {lastActive
-                        ? `Last active ${new Date(lastActive.createdAt).toLocaleString()}`
+                        ? `Last active ${formatDateTime(lastActive.createdAt)}`
                         : "No activity yet"}
                     </p>
                   </div>
@@ -112,7 +113,7 @@ async function AgentsContent() {
                     ) : null}
                   </div>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {new Date(entry.createdAt).toLocaleString()}
+                    {formatDateTime(entry.createdAt)}
                   </span>
                 </div>
               );

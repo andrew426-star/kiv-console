@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getStripeFinancials } from "@/lib/portfolio/stripe";
+import { formatDate } from "@/lib/time";
 
 function formatCurrency(amount: number, currency: string) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amount);
@@ -58,7 +59,7 @@ export async function CompanyFinancials() {
                       <div>
                         <p className="font-medium">{tx.description ?? tx.type}</p>
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span>{new Date(tx.createdAt).toLocaleDateString()}</span>
+                          <span>{formatDate(tx.createdAt)}</span>
                           <Badge variant="secondary" className="text-[10px]">
                             {tx.type}
                           </Badge>

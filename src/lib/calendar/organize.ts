@@ -1,9 +1,10 @@
 import type { GoogleCalendarEvent } from "./google";
+import { TIME_ZONE } from "@/lib/time";
 
 // Andrew's calendar lives in Ruston. The server runs in UTC on Render, so
 // every time shown in K.I.V. has to be formatted in this zone explicitly —
 // a bare toLocaleString() there prints UTC, five hours off.
-export const CALENDAR_TIME_ZONE = "America/Chicago";
+export const CALENDAR_TIME_ZONE = TIME_ZONE;
 
 export type EventKind = "exam" | "deadline" | "sales" | "class" | "meeting" | "event";
 

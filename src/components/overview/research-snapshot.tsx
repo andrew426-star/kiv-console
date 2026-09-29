@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getLatestBrief } from "@/lib/research/queries";
+import { formatDateTime } from "@/lib/time";
 
 export async function ResearchSnapshot() {
   const brief = await getLatestBrief();
@@ -20,7 +21,7 @@ export async function ResearchSnapshot() {
               {brief.content}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Generated {new Date(brief.generatedAt).toLocaleString()}
+              Generated {formatDateTime(brief.generatedAt)}
             </p>
           </>
         ) : (

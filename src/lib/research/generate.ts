@@ -6,6 +6,7 @@ import { getWatchlist } from "@/lib/intel/queries";
 import { getNewsFeed } from "@/lib/news/newsapi";
 import { getProjectBoardSnapshot, type ProjectBoardSnapshot } from "@/lib/company/queries";
 import { getWeatherSnapshot } from "./weather";
+import { formatDateOnly, formatDateTime, nowForPrompt } from "@/lib/time";
 
 const MOVER_THRESHOLD_PERCENT = 3;
 
@@ -52,7 +53,7 @@ function formatProjectBoard(board: ProjectBoardSnapshot): string | null {
       `Tasks due within ${DUE_SOON_DAYS} days:`,
       ...dueSoon.map(
         (t) =>
-          `- ${t.title}${t.projectName ? ` (${t.projectName})` : ""} — due ${new Date(t.dueDate!).toLocaleDateString()}`,
+          `- ${t.title}${t.projectName ? ` (${t.projectName})` : ""} — due ${formatDateOnly(t.dueDate!)}`,
       ),
     );
   }
@@ -70,14 +71,14 @@ async function buildPromptContext(): Promise<string> {
     getProjectBoardSnapshot().catch(() => ({ projects: [], tasks: [] })),
   ]);
 
-  const sections: string[] = [`Today: ${new Date().toDateString()}`];
+  const sections: string[] = [nowForPrompt()];
 
   if (calendarState.connected && "events" in calendarState) {
     const lines = calendarState.events.slice(0, 12).map((e) => {
       const when = e.start
         ? e.allDay
-          ? new Date(e.start).toLocaleDateString()
-          : new Date(e.start).toLocaleString()
+          ? formatDateOnly(e.start)
+          : formatDateTime(e.start)
         : "";
       return `- ${when} — ${e.summary}`;
     });
