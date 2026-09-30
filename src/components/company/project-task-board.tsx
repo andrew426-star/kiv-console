@@ -1,5 +1,10 @@
+import { ChevronRightIcon, FolderIcon, FolderOpenIcon } from "lucide-react";
 import { getProjects, getTasks, getFormOptions } from "@/lib/company/queries";
 import { deleteProjectRecord, deleteTaskRecord } from "@/lib/company/actions";
+import { describeDue, sortTasksByDue, type DueTone } from "@/lib/company/due";
+import { todayInCalendarZone } from "@/lib/calendar/organize";
+import { formatDateOnly } from "@/lib/time";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,10 +15,36 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProjectFormDialog } from "./project-form-dialog";
 import { TaskFormDialog } from "./task-form-dialog";
 import { DeleteButton } from "./delete-button";
+
+type Task = Awaited<ReturnType<typeof getTasks>>[number];
+
+// Finished projects start collapsed; everything else starts open.
+const CLOSED_STATUSES = new Set(["completed", "archived"]);
+
+const DUE_TONE_CLASS: Record<DueTone, string> = {
+  overdue: "bg-destructive/15 text-destructive",
+  today: "bg-amber-500/20 text-amber-600 dark:text-amber-400",
+  soon: "bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  later: "bg-secondary text-secondary-foreground",
+  done: "bg-transparent text-muted-foreground line-through",
+  none: "bg-transparent text-muted-foreground",
+};
+
+function DueBadge({ task, today }: { task: Task; today: string }) {
+  const due = describeDue(task.due_date, task.status, today);
+  return (
+    <Badge
+      variant="secondary"
+      className={DUE_TONE_CLASS[due.tone]}
+      title={due.date ?? undefined}
+    >
+      {due.label}
+    </Badge>
+  );
+}
 
 export async function ProjectTaskBoard() {
   const [projects, tasks, options] = await Promise.all([
@@ -21,139 +52,160 @@ export async function ProjectTaskBoard() {
     getTasks(),
     getFormOptions(),
   ]);
+  const today = todayInCalendarZone();
+
+  const tasksByProject = new Map<string, Task[]>();
+  for (const task of tasks) {
+    const list = tasksByProject.get(task.project_id) ?? [];
+    list.push(task);
+    tasksByProject.set(task.project_id, list);
+  }
+
+  const overdueTotal = tasks.filter(
+    (t) => describeDue(t.due_date, t.status, today).tone === "overdue",
+  ).length;
 
   return (
     <Card className="glow-border-hover">
-      <CardHeader>
-        <CardTitle className="font-heading">Projects &amp; Tasks</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <CardTitle className="font-heading">Projects &amp; Tasks</CardTitle>
+          <span className="text-sm text-muted-foreground">
+            {projects.length} project{projects.length === 1 ? "" : "s"} · {tasks.length} task
+            {tasks.length === 1 ? "" : "s"}
+          </span>
+          {overdueTotal > 0 && (
+            <Badge variant="destructive">{overdueTotal} overdue</Badge>
+          )}
+        </div>
+        <ProjectFormDialog
+          triggerLabel="+ New project"
+          clients={options.clients}
+          profiles={options.profiles}
+        />
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="projects">
-          <TabsList>
-            <TabsTrigger value="projects">Projects ({projects.length})</TabsTrigger>
-            <TabsTrigger value="tasks">Tasks ({tasks.length})</TabsTrigger>
-          </TabsList>
+      <CardContent className="flex flex-col gap-2">
+        {projects.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No projects yet. Create one above, then add tasks inside it.
+          </p>
+        ) : (
+          projects.map((project) => {
+            const client = project.clients as unknown as { name: string } | null;
+            const owner = project.profiles as unknown as { full_name: string } | null;
+            const projectTasks = sortTasksByDue(tasksByProject.get(project.id) ?? []);
+            const openTasks = projectTasks.filter((t) => t.status !== "done");
+            const overdue = openTasks.filter(
+              (t) => describeDue(t.due_date, t.status, today).tone === "overdue",
+            ).length;
+            const nextDue = openTasks.find((t) => t.due_date)?.due_date ?? null;
 
-          <TabsContent value="projects" className="flex flex-col gap-3 pt-3">
-            <div className="flex justify-end">
-              <ProjectFormDialog
-                triggerLabel="+ New project"
-                clients={options.clients}
-                profiles={options.profiles}
-              />
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Owner</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projects.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-sm text-muted-foreground">
-                      No projects yet. Add the first one above.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  projects.map((project) => {
-                    const client = project.clients as unknown as { name: string } | null;
-                    const owner = project.profiles as unknown as { full_name: string } | null;
-                    return (
-                      <TableRow key={project.id}>
-                        <TableCell className="font-medium">{project.name}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {client?.name ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {owner?.full_name ?? "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{project.status}</Badge>
-                        </TableCell>
-                        <TableCell className="flex justify-end gap-2">
-                          <ProjectFormDialog
-                            triggerLabel="Edit"
-                            triggerVariant="outline"
-                            triggerSize="xs"
-                            project={project}
-                            clients={options.clients}
-                            profiles={options.profiles}
-                          />
-                          <DeleteButton action={deleteProjectRecord.bind(null, project.id)} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </TabsContent>
+            return (
+              <details
+                key={project.id}
+                open={!CLOSED_STATUSES.has(project.status)}
+                className="group rounded-lg border border-border"
+              >
+                <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
+                  <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
+                  <FolderIcon className="size-4 shrink-0 text-primary group-open:hidden" />
+                  <FolderOpenIcon className="hidden size-4 shrink-0 text-primary group-open:block" />
+                  <span className="font-medium">{project.name}</span>
+                  <Badge variant="secondary">{project.status}</Badge>
+                  <span className="hidden truncate text-sm text-muted-foreground sm:inline">
+                    {[client?.name, owner?.full_name].filter(Boolean).join(" · ")}
+                  </span>
+                  <span className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    {overdue > 0 && <Badge variant="destructive">{overdue} overdue</Badge>}
+                    {nextDue && <span>Next due {formatDateOnly(nextDue)}</span>}
+                    <span>
+                      {openTasks.length}/{projectTasks.length} open
+                    </span>
+                  </span>
+                </summary>
 
-          <TabsContent value="tasks" className="flex flex-col gap-3 pt-3">
-            <div className="flex justify-end">
-              <TaskFormDialog
-                triggerLabel="+ New task"
-                projects={options.projects}
-                profiles={options.profiles}
-              />
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Assignee</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tasks.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-sm text-muted-foreground">
-                      No tasks yet. Add the first one above.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  tasks.map((task) => {
-                    const project = task.projects as unknown as { name: string } | null;
-                    const assignee = task.profiles as unknown as { full_name: string } | null;
-                    return (
-                      <TableRow key={task.id}>
-                        <TableCell className="font-medium">{task.title}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {project?.name ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {assignee?.full_name ?? "Unassigned"}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{task.status}</Badge>
-                        </TableCell>
-                        <TableCell className="flex justify-end gap-2">
-                          <TaskFormDialog
-                            triggerLabel="Edit"
-                            triggerVariant="outline"
-                            triggerSize="xs"
-                            task={task}
-                            projects={options.projects}
-                            profiles={options.profiles}
-                          />
-                          <DeleteButton action={deleteTaskRecord.bind(null, task.id)} />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </TabsContent>
-        </Tabs>
+                <div className="flex flex-col gap-2 border-t border-border px-3 py-3">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <TaskFormDialog
+                      triggerLabel="+ Add task"
+                      triggerSize="xs"
+                      defaultProjectId={project.id}
+                      projects={options.projects}
+                      profiles={options.profiles}
+                    />
+                    <ProjectFormDialog
+                      triggerLabel="Edit project"
+                      triggerVariant="outline"
+                      triggerSize="xs"
+                      project={project}
+                      clients={options.clients}
+                      profiles={options.profiles}
+                    />
+                    <DeleteButton
+                      action={deleteProjectRecord.bind(null, project.id)}
+                      confirmMessage={
+                        projectTasks.length > 0
+                          ? `Delete "${project.name}" and its ${projectTasks.length} task${projectTasks.length === 1 ? "" : "s"}? This can't be undone.`
+                          : undefined
+                      }
+                    />
+                  </div>
+
+                  {projectTasks.length === 0 ? (
+                    <p className="pl-6 text-sm text-muted-foreground">
+                      No tasks in this project yet.
+                    </p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Task</TableHead>
+                          <TableHead>Due</TableHead>
+                          <TableHead>Assignee</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {projectTasks.map((task) => {
+                          const assignee = task.profiles as unknown as { full_name: string } | null;
+                          return (
+                            <TableRow
+                              key={task.id}
+                              className={cn(task.status === "done" && "opacity-60")}
+                            >
+                              <TableCell className="font-medium">{task.title}</TableCell>
+                              <TableCell>
+                                <DueBadge task={task} today={today} />
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {assignee?.full_name ?? "Unassigned"}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline">{task.status}</Badge>
+                              </TableCell>
+                              <TableCell className="flex justify-end gap-2">
+                                <TaskFormDialog
+                                  triggerLabel="Edit"
+                                  triggerVariant="outline"
+                                  triggerSize="xs"
+                                  task={task}
+                                  projects={options.projects}
+                                  profiles={options.profiles}
+                                />
+                                <DeleteButton action={deleteTaskRecord.bind(null, task.id)} />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+                </div>
+              </details>
+            );
+          })
+        )}
       </CardContent>
     </Card>
   );

@@ -22,6 +22,7 @@ export function TaskFormDialog({
   triggerVariant = "default",
   triggerSize = "sm",
   task,
+  defaultProjectId,
   projects,
   profiles,
 }: {
@@ -36,6 +37,7 @@ export function TaskFormDialog({
     assignee_id: string | null;
     due_date: string | null;
   };
+  defaultProjectId?: string;
   projects: { id: string; name: string }[];
   profiles: { id: string; full_name: string }[];
 }) {
@@ -73,7 +75,7 @@ export function TaskFormDialog({
               id="project_id"
               name="project_id"
               required
-              defaultValue={task?.project_id ?? ""}
+              defaultValue={task?.project_id ?? defaultProjectId ?? ""}
               className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
             >
               <option value="" disabled>
