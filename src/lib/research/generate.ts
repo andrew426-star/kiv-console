@@ -80,7 +80,7 @@ async function buildPromptContext(): Promise<string> {
           ? formatDateOnly(e.start)
           : formatDateTime(e.start)
         : "";
-      return `- ${when} — ${e.summary}`;
+      return `- ${when} — ${e.summary}${e.source === "school" ? " [school]" : ""}`;
     });
     sections.push(
       `Calendar (next 14 days):\n${lines.length > 0 ? lines.join("\n") : "No upcoming events."}`,

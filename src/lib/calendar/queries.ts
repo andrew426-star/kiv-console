@@ -1,11 +1,27 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { withSchoolAccount, type SchoolConnectionStatus } from "@/lib/google/school-access-token";
 import { fetchUpcomingEvents, refreshAccessToken, type GoogleCalendarEvent } from "./google";
+import { mergeAccountEvents } from "./organize";
 
+// `school` rides along on the connected states: the Louisiana Tech
+// calendar is an add-on to the Workspace one, merged into `events`, and
+// its own status is reported separately so it can fail on its own.
 export type CalendarState =
   | { connected: false }
-  | { connected: true; calendarEmail: string; events: GoogleCalendarEvent[] }
-  | { connected: true; calendarEmail: string; fetchError: string };
+  | {
+      connected: true;
+      calendarEmail: string;
+      events: GoogleCalendarEvent[];
+      school: SchoolConnectionStatus;
+    }
+  | { connected: true; calendarEmail: string; fetchError: string; school: SchoolConnectionStatus };
+
+const CALENDAR_DAYS = 14;
+
+export function fetchSchoolEvents() {
+  return withSchoolAccount((token) => fetchUpcomingEvents(token, { days: CALENDAR_DAYS }));
+}
 
 export async function getCalendarState(): Promise<CalendarState> {
   const supabase = await createClient();
@@ -24,6 +40,7 @@ export async function getCalendarState(): Promise<CalendarState> {
   if (!connection) return { connected: false };
 
   const calendarEmail = connection.calendar_email as string;
+  const schoolPromise = fetchSchoolEvents();
 
   try {
     let accessToken = connection.access_token as string | null;
@@ -45,8 +62,16 @@ export async function getCalendarState(): Promise<CalendarState> {
         .eq("profile_id", user.id);
     }
 
-    const events = await fetchUpcomingEvents(accessToken!, { days: 14 });
-    return { connected: true, calendarEmail, events };
+    const [workspaceEvents, { status: school, items: schoolEvents }] = await Promise.all([
+      fetchUpcomingEvents(accessToken!, { days: CALENDAR_DAYS }),
+      schoolPromise,
+    ]);
+    return {
+      connected: true,
+      calendarEmail,
+      events: mergeAccountEvents(workspaceEvents, schoolEvents),
+      school,
+    };
   } catch (err) {
     // A connected account whose calendar fetch is failing (disabled API,
     // revoked access, rate limit) should show an honest error, not crash
@@ -56,6 +81,7 @@ export async function getCalendarState(): Promise<CalendarState> {
       connected: true,
       calendarEmail,
       fetchError: err instanceof Error ? err.message : "Unknown error",
+      school: (await schoolPromise).status,
     };
   }
 }

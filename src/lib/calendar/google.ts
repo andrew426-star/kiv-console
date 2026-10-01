@@ -43,15 +43,39 @@ const CALENDAR_SCOPE = [
   "https://www.googleapis.com/auth/webmasters.readonly",
 ].join(" ");
 
-export function buildGoogleAuthUrl(redirectUri: string, state: string) {
+// The Louisiana Tech account is read-only: its calendar and inbox headers
+// show up next to the Workspace ones, and nothing else. No send, no Drive,
+// no event writes.
+const SCHOOL_SCOPE = [
+  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/gmail.metadata",
+  "https://www.googleapis.com/auth/userinfo.email",
+].join(" ");
+
+// Which Google account an event or message came from. "workspace" is the
+// calendar_connections grant; "school" is school_google_connections.
+export type GoogleAccountSource = "workspace" | "school";
+
+// Both accounts share one OAuth client and one callback URL (so no new
+// redirect URI to register in Google Cloud); the callback tells them apart
+// by the "school:" prefix on state.
+export const SCHOOL_STATE_PREFIX = "school:";
+
+export function buildGoogleAuthUrl(
+  redirectUri: string,
+  state: string,
+  { account = "workspace" }: { account?: GoogleAccountSource } = {},
+) {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: CALENDAR_SCOPE,
+    scope: account === "school" ? SCHOOL_SCOPE : CALENDAR_SCOPE,
     access_type: "offline",
-    prompt: "consent",
-    state,
+    // select_account so the school connect doesn't silently reuse the
+    // browser's signed-in Kivaro account.
+    prompt: account === "school" ? "consent select_account" : "consent",
+    state: account === "school" ? `${SCHOOL_STATE_PREFIX}${state}` : state,
   });
   return `${GOOGLE_AUTH_URL}?${params.toString()}`;
 }
@@ -110,6 +134,8 @@ export type GoogleCalendarEvent = {
   // Set on every instance of a repeating event (singleEvents=true expands
   // them), so the Calendar page can fold a week of classes into one row.
   recurringEventId: string | null;
+  // Unset means "workspace", so existing callers and tests don't change.
+  source?: GoogleAccountSource;
 };
 
 export async function fetchUpcomingEvents(

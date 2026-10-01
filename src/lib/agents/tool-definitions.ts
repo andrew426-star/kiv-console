@@ -24,7 +24,7 @@ const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
 
 const CALENDAR_DECL: GeminiFunctionDeclaration = {
   name: "get_calendar_events",
-  description: "Get Andrew's calendar for the next 14 days, already organized and in Central time: highlights (one-off events, exams, deadlines, sales calls, and classes at an unusual time), his weekly routine (repeating blocks like classes, one row each with days and time), and a day-by-day agenda.",
+  description: "Get Andrew's calendar for the next 14 days, already organized and in Central time: highlights (one-off events, exams, deadlines, sales calls, and classes at an unusual time), his weekly routine (repeating blocks like classes, one row each with days and time), and a day-by-day agenda. Merges his Kivaro Google calendar with his Louisiana Tech school calendar when that's connected; every event and routine has a source of \"workspace\" or \"school\".",
   parameters: { type: "OBJECT", properties: {} },
 };
 

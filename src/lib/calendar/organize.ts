@@ -1,4 +1,4 @@
-import type { GoogleCalendarEvent } from "./google";
+import type { GoogleAccountSource, GoogleCalendarEvent } from "./google";
 import { TIME_ZONE } from "@/lib/time";
 
 // Andrew's calendar lives in Ruston. The server runs in UTC on Render, so
@@ -81,6 +81,7 @@ export type OrganizedEvent = {
   summary: string;
   htmlLink: string;
   kind: EventKind;
+  source: GoogleAccountSource;
   date: string;
   dayLabel: string;
   timeLabel: string;
@@ -97,6 +98,7 @@ export type OrganizedEvent = {
 export type RoutineBlock = {
   summary: string;
   kind: EventKind;
+  source: GoogleAccountSource;
   // One row per distinct time slot: MWF 12:30 and a Tuesday lab at 2:00
   // under the same course code show as two slots.
   slots: { days: string; timeLabel: string }[];
@@ -127,6 +129,34 @@ function dayLabel(date: string, today: string): string {
   return pretty;
 }
 
+// Sort key for an event start. An all-day date ("2026-10-02") parses as UTC
+// midnight, which is the evening before in Central; pin it to 05:00Z
+// (Central midnight in CDT, an hour before it in CST) so it still sorts
+// ahead of that day's timed events.
+function startSortKey(e: GoogleCalendarEvent): number {
+  if (!e.start) return Number.POSITIVE_INFINITY;
+  return e.allDay ? Date.parse(`${e.start.slice(0, 10)}T05:00:00Z`) : Date.parse(e.start);
+}
+
+// Combines the Workspace and school calendars into one start-ordered list.
+// School event ids get a prefix, since ids are only unique per calendar
+// and React keys and organizeCalendar's lookups need them unique overall.
+// The same event on both calendars (a class copied or shared into the
+// Kivaro calendar, a school invite to both addresses) shows once, as
+// school, matched on title and start.
+export function mergeAccountEvents(
+  workspace: GoogleCalendarEvent[],
+  school: GoogleCalendarEvent[],
+): GoogleCalendarEvent[] {
+  const key = (e: GoogleCalendarEvent) => `${e.summary.trim().toLowerCase()}|${startSortKey(e)}`;
+  const schoolEvents = school.map((e) => ({ ...e, id: `school:${e.id}`, source: "school" as const }));
+  const schoolKeys = new Set(schoolEvents.map(key));
+  return [
+    ...workspace.filter((e) => !schoolKeys.has(key(e))),
+    ...schoolEvents,
+  ].sort((a, b) => startSortKey(a) - startSortKey(b));
+}
+
 export function todayInCalendarZone(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: CALENDAR_TIME_ZONE }).format(now);
 }
@@ -148,7 +178,9 @@ export function organizeCalendar(
         start,
         endMinutes,
         timeLabel: e.allDay ? "All day" : formatRange(start.minutes, endMinutes),
-        groupKey: e.summary.trim().toLowerCase(),
+        // Per account, so a same-named block on each calendar stays two
+        // differently colored routines rather than one mixed one.
+        groupKey: `${e.source ?? "workspace"}|${e.summary.trim().toLowerCase()}`,
       };
     });
 
@@ -182,6 +214,7 @@ export function organizeCalendar(
         summary: i.event.summary,
         htmlLink: i.event.htmlLink,
         kind: i.kind,
+        source: i.event.source ?? "workspace",
         date: i.start.date,
         dayLabel: dayLabel(i.start.date, today),
         timeLabel: i.timeLabel,
@@ -206,6 +239,7 @@ export function organizeCalendar(
     routines.push({
       summary: first.event.summary,
       kind: first.kind,
+      source: first.event.source ?? "workspace",
       slots: [...slots.values()]
         .sort((a, b) => a.minutes - b.minutes)
         .map((s) => ({

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCalendarState } from "@/lib/calendar/queries";
 import { organizeCalendar } from "@/lib/calendar/organize";
 import type { GoogleCalendarEvent } from "@/lib/calendar/google";
+import { SourceDot } from "@/components/calendar/account-source";
 
 // Highlights first (one-offs, exams, deadlines, sales calls), since the
 // weekly class routine would otherwise fill all five rows. Times are the
@@ -12,7 +13,10 @@ function SnapshotList({ events }: { events: GoogleCalendarEvent[] }) {
   const rows = (highlights.length > 0 ? highlights : agenda.flatMap((d) => d.events)).slice(0, 5);
   return rows.map((event) => (
     <div key={event.id} className="flex items-center justify-between gap-2 text-sm">
-      <span className="truncate font-medium">{event.summary}</span>
+      <span className="flex min-w-0 items-center gap-2">
+        <SourceDot source={event.source} />
+        <span className="truncate font-medium">{event.summary}</span>
+      </span>
       <span className="shrink-0 text-xs text-muted-foreground">
         {event.dayLabel.split(" · ")[0]} · {event.timeLabel.split(" – ")[0]}
       </span>

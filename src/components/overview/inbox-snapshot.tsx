@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getInboxPreview } from "@/lib/gmail/queries";
+import { SchoolBadge, SourceDot } from "@/components/calendar/account-source";
 
 function senderName(from: string): string {
   // "Jane Doe <jane@example.com>" -> "Jane Doe"; falls back to the raw
@@ -34,6 +35,7 @@ export async function InboxSnapshot() {
         ) : (
           state.messages.slice(0, 5).map((m) => (
             <div key={m.id} className="flex items-center justify-between gap-2 text-sm">
+              <SourceDot source={m.source ?? "workspace"} />
               <div className="min-w-0 flex-1">
                 <p
                   className={`truncate ${m.unread ? "font-semibold" : "font-medium text-muted-foreground"}`}
@@ -42,6 +44,7 @@ export async function InboxSnapshot() {
                 </p>
                 <p className="truncate text-xs text-muted-foreground">{m.subject}</p>
               </div>
+              {m.source === "school" ? <SchoolBadge /> : null}
               {m.unread ? (
                 <Badge variant="outline" className="shrink-0 border-kv-mint/40 text-kv-mint">
                   New
@@ -50,6 +53,11 @@ export async function InboxSnapshot() {
             </div>
           ))
         )}
+        {state.connected && "fetchError" in state.school ? (
+          <p className="text-xs text-destructive">
+            LA Tech inbox failed: {state.school.fetchError}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

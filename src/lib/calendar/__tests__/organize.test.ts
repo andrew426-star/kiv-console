@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { GoogleCalendarEvent } from "../google";
-import { classifyEvent, organizeCalendar, todayInCalendarZone } from "../organize";
+import {
+  classifyEvent,
+  mergeAccountEvents,
+  organizeCalendar,
+  todayInCalendarZone,
+} from "../organize";
 
 let seq = 0;
 function ev(
@@ -83,5 +88,51 @@ describe("classifyEvent", () => {
 
   it("reads today in Central time", () => {
     expect(todayInCalendarZone(new Date("2026-10-01T03:00:00Z"))).toBe("2026-09-30");
+  });
+});
+
+describe("mergeAccountEvents", () => {
+  const workspace = [
+    ev("Bulldog Entrepreneurs Meeting", "2026-09-28T23:00:00Z", "2026-09-29T00:00:00Z"),
+    ev("MATH-2403", "2026-09-28T17:30:00Z", "2026-09-28T18:45:00Z", "math"),
+  ];
+  const school = [
+    { ...ev("math-2403", "2026-09-28T17:30:00Z", "2026-09-28T18:45:00Z", "m"), id: "s1" },
+    { ...ev("Advising", "2026-09-28T15:00:00Z", "2026-09-28T15:30:00Z"), id: "s2" },
+    { ...ev("Fall break", "2026-09-28", null), id: "s3", allDay: true },
+  ];
+  const merged = mergeAccountEvents(workspace, school);
+
+  it("orders both accounts by start, with all-day events first in the day", () => {
+    expect(merged.map((e) => e.summary)).toEqual([
+      "Fall break",
+      "Advising",
+      "math-2403",
+      "Bulldog Entrepreneurs Meeting",
+    ]);
+  });
+
+  it("keeps an event on both calendars once, as school", () => {
+    expect(merged.filter((e) => e.summary.toLowerCase() === "math-2403")).toHaveLength(1);
+    expect(merged.find((e) => e.summary === "math-2403")?.source).toBe("school");
+  });
+
+  it("tags and prefixes school ids so they can't collide with workspace ids", () => {
+    expect(merged.filter((e) => e.source === "school").map((e) => e.id)).toEqual([
+      "school:s3",
+      "school:s2",
+      "school:s1",
+    ]);
+    expect(merged.find((e) => e.summary === "Bulldog Entrepreneurs Meeting")?.source).toBeUndefined();
+  });
+
+  it("carries the source through organizeCalendar", () => {
+    const { agenda } = organizeCalendar(merged, "2026-09-28");
+    expect(agenda[0].events.map((e) => e.source)).toEqual([
+      "school",
+      "school",
+      "school",
+      "workspace",
+    ]);
   });
 });

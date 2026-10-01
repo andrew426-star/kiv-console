@@ -1,3 +1,5 @@
+import type { GoogleAccountSource } from "@/lib/calendar/google";
+
 const GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 
 export type InboxMessage = {
@@ -7,6 +9,8 @@ export type InboxMessage = {
   snippet: string;
   date: string;
   unread: boolean;
+  // Unset means "workspace".
+  source?: GoogleAccountSource;
 };
 
 function headerValue(headers: Array<{ name: string; value: string }>, name: string): string {

@@ -5,6 +5,48 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getCalendarState } from "@/lib/calendar/queries";
 import { organizeCalendar } from "@/lib/calendar/organize";
 import { EventKindBadge } from "@/components/calendar/event-kind-badge";
+import {
+  SOURCE_BORDER,
+  SchoolBadge,
+  SourceDot,
+  SourceLegend,
+} from "@/components/calendar/account-source";
+import type { SchoolConnectionStatus } from "@/lib/google/school-access-token";
+
+// Connect / connected / failing line for the read-only Louisiana Tech
+// account. Shown on every connected state, so a broken school connection
+// is visible even when the Kivaro calendar is fine.
+function SchoolAccountLine({
+  school,
+  error,
+}: {
+  school: SchoolConnectionStatus;
+  error?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+      {!school.connected ? (
+        <a
+          href="/api/auth/google/connect?account=school"
+          className={buttonVariants({ variant: "outline", size: "sm", className: "w-fit" })}
+        >
+          Connect Louisiana Tech account
+        </a>
+      ) : "fetchError" in school ? (
+        <span className="text-destructive">
+          LA Tech{school.email ? ` (${school.email})` : ""} connected, but the last fetch failed:{" "}
+          {school.fetchError}.{" "}
+          <a href="/api/auth/google/connect?account=school" className="underline">
+            Reconnect
+          </a>
+        </span>
+      ) : (
+        <SourceLegend />
+      )}
+      {error ? <span className="text-destructive">Connection failed: {error}</span> : null}
+    </div>
+  );
+}
 
 async function CalendarContent({
   searchParams,
@@ -39,7 +81,8 @@ async function CalendarContent({
         <CardHeader>
           <CardTitle className="font-heading">Calendar — {state.calendarEmail}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-3">
+          <SchoolAccountLine school={state.school} error={error} />
           <p className="text-sm text-destructive">
             Connected, but the last fetch failed: {state.fetchError}
           </p>
@@ -54,7 +97,8 @@ async function CalendarContent({
         <CardHeader>
           <CardTitle className="font-heading">Calendar — {state.calendarEmail}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-3">
+          <SchoolAccountLine school={state.school} error={error} />
           <p className="text-sm text-muted-foreground">No events in the next 14 days.</p>
         </CardContent>
       </Card>
@@ -65,9 +109,14 @@ async function CalendarContent({
 
   return (
     <>
-      <p className="text-sm text-muted-foreground">
-        {state.calendarEmail} · next 14 days · times in Central
-      </p>
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-muted-foreground">
+          {state.calendarEmail}
+          {state.school.connected && state.school.email ? ` + ${state.school.email}` : ""} · next
+          14 days · times in Central
+        </p>
+        <SchoolAccountLine school={state.school} error={error} />
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="glow-border-hover lg:col-span-2">
@@ -90,12 +139,13 @@ async function CalendarContent({
                   href={event.htmlLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-start justify-between gap-3 rounded-md border border-l-4 border-l-primary p-3 text-sm hover:bg-muted"
+                  className={`flex items-start justify-between gap-3 rounded-md border border-l-4 ${SOURCE_BORDER[event.source]} p-3 text-sm hover:bg-muted`}
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">{event.summary}</span>
                       <EventKindBadge kind={event.kind} />
+                      {event.source === "school" ? <SchoolBadge /> : null}
                     </div>
                     {event.note ? (
                       <p className="mt-1 text-xs text-amber-400">{event.note}</p>
@@ -121,8 +171,9 @@ async function CalendarContent({
               <p className="text-sm text-muted-foreground">No repeating events found.</p>
             ) : (
               routines.map((block) => (
-                <div key={block.summary} className="flex flex-col gap-1 text-sm">
+                <div key={`${block.source}|${block.summary}`} className="flex flex-col gap-1 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
+                    <SourceDot source={block.source} />
                     <span className="font-medium">{block.summary}</span>
                     <EventKindBadge kind={block.kind} />
                   </div>
@@ -157,10 +208,11 @@ async function CalendarContent({
                   rel="noreferrer"
                   className={
                     event.highlight
-                      ? "flex items-center gap-3 rounded-md border border-l-4 border-l-primary px-3 py-2 text-sm hover:bg-muted"
+                      ? `flex items-center gap-3 rounded-md border border-l-4 ${SOURCE_BORDER[event.source]} px-3 py-2 text-sm hover:bg-muted`
                       : "flex items-center gap-3 rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted"
                   }
                 >
+                  <SourceDot source={event.source} />
                   <span className="w-36 shrink-0 text-xs tabular-nums">{event.timeLabel}</span>
                   <span className={event.highlight ? "font-medium" : ""}>{event.summary}</span>
                   {event.highlight ? <EventKindBadge kind={event.kind} /> : null}

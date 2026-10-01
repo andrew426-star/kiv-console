@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", origin));
   }
 
+  // ?account=school connects the read-only Louisiana Tech account instead
+  // of (not in place of) the Workspace one.
+  const account = request.nextUrl.searchParams.get("account") === "school" ? "school" : "workspace";
+
   const redirectUri = new URL("/api/auth/google/callback", origin).toString();
-  return NextResponse.redirect(buildGoogleAuthUrl(redirectUri, user.id));
+  return NextResponse.redirect(buildGoogleAuthUrl(redirectUri, user.id, { account }));
 }

@@ -16,6 +16,12 @@ export function getIntegrationsStatus(): IntegrationStatus[] {
       description: "Calendar, and ALE's Sheets/Docs/Drive/Gmail-send access — one OAuth connection.",
     },
     {
+      name: "Google (Louisiana Tech)",
+      configured: Boolean(process.env.GOOGLE_CLIENT_ID),
+      description:
+        "Andrew's school account, read-only: its calendar merges into the Calendar page and agents' calendar tool, its inbox headers into Overview's Inbox. Separate OAuth connection from Google Workspace.",
+    },
+    {
       name: "Google Places API",
       configured: Boolean(process.env.GOOGLE_PLACES_API_KEY),
       description: "ALE Stage 1 company discovery.",
