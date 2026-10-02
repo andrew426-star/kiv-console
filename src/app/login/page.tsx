@@ -1,11 +1,7 @@
 import { Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { signIn } from "./actions";
-import { RecoveryForwarder } from "./recovery-forwarder";
+import { signInWithGoogle } from "./actions";
 
 // searchParams is a dynamic API — isolated in its own Suspense boundary so
 // the rest of the login form still prerenders statically.
@@ -22,7 +18,6 @@ export default function LoginPage({
 }) {
   return (
     <div className="grid-pattern flex flex-1 items-center justify-center p-4 sm:p-16">
-      <RecoveryForwarder />
       <Card className="glow-border w-full max-w-sm animate-fade-up bg-kv-surface/80 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="font-heading text-2xl font-bold text-gradient-green">
@@ -33,33 +28,13 @@ export default function LoginPage({
           </p>
         </CardHeader>
         <CardContent>
-          <form action={signIn} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" required autoComplete="email" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-              />
-            </div>
+          <form action={signInWithGoogle} className="flex flex-col gap-4">
             <Suspense fallback={null}>
               <LoginError searchParams={searchParams} />
             </Suspense>
-            <Button type="submit" className="mt-2">
-              Sign in
+            <Button type="submit" className="mt-2 h-11">
+              Sign in with Google
             </Button>
-            <Link
-              href="/forgot-password"
-              className="text-center text-sm text-muted-foreground hover:text-foreground"
-            >
-              Forgot password?
-            </Link>
           </form>
         </CardContent>
       </Card>

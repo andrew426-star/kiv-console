@@ -1,21 +1,33 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export async function signIn(formData: FormData) {
+// Off to Google, by way of Supabase, and back to /auth/callback. The PKCE
+// verifier is set as a cookie here, so the round trip has to finish in the
+// browser that started it.
+export async function signInWithGoogle() {
+  // The public host the browser used (see lib/origin.ts for why not the
+  // request URL), so Google sends the user back to this deployment.
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const proto = h.get("x-forwarded-proto") ?? "https";
+
   const supabase = await createClient();
-
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${proto}://${host}/auth/callback`,
+      // Shows the account chooser every time rather than silently reusing
+      // whichever Google account the browser is signed in to.
+      queryParams: { prompt: "select_account" },
+    },
+  });
+  if (error || !data.url) {
+    redirect(`/login?error=${encodeURIComponent(error?.message ?? "Google sign-in is unavailable.")}`);
   }
-
-  redirect("/");
+  redirect(data.url);
 }
 
 export async function signOut() {

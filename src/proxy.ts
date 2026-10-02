@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isAllowedEmail } from "@/lib/auth/allowlist";
 
 // /api/agents/log is called by external agent backends (Slack bot, Jarvis,
 // etc.) with no Supabase session — it enforces its own bearer-token check.
@@ -13,13 +14,11 @@ import { NextResponse, type NextRequest } from "next/server";
 // cron jobs, same bearer-token pattern as /api/ale/batch.
 // /manifest.webmanifest is fetched by the browser itself to install the
 // app, with no session to show.
-// /auth/confirm, /forgot-password and /reset-password are the password
-// reset flow, which by definition starts without a session.
+// /auth/callback is where Google sign-in returns, before there is a
+// session to show.
 const PUBLIC_PATHS = [
   "/login",
-  "/auth/confirm",
-  "/forgot-password",
-  "/reset-password",
+  "/auth/callback",
   "/manifest.webmanifest",
   "/api/health",
   "/api/agents/log",
@@ -59,13 +58,23 @@ export async function proxy(request: NextRequest) {
 
   const isPublicPath = PUBLIC_PATHS.some((path) => request.nextUrl.pathname.startsWith(path));
 
+  // A session only counts for an allowlisted account. /auth/callback signs
+  // anyone else straight back out; this is the backstop for a session that
+  // got past it, or one from before an address was taken off the list.
+  if (user && !isAllowedEmail(user.email) && !isPublicPath) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = `?error=${encodeURIComponent("That account is not authorised for K.I.V.")}`;
+    return NextResponse.redirect(url);
+  }
+
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && request.nextUrl.pathname === "/login") {
+  if (user && isAllowedEmail(user.email) && request.nextUrl.pathname === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
