@@ -11,8 +11,16 @@ import { NextResponse, type NextRequest } from "next/server";
 // same bearer-token pattern as /api/agents/log.
 // /api/trading is the daily signal scan + weekly backtest GitHub Actions
 // cron jobs, same bearer-token pattern as /api/ale/batch.
+// /manifest.webmanifest is fetched by the browser itself to install the
+// app, with no session to show.
+// /auth/confirm, /forgot-password and /reset-password are the password
+// reset flow, which by definition starts without a session.
 const PUBLIC_PATHS = [
   "/login",
+  "/auth/confirm",
+  "/forgot-password",
+  "/reset-password",
+  "/manifest.webmanifest",
   "/api/health",
   "/api/agents/log",
   "/api/agents/jobs",
