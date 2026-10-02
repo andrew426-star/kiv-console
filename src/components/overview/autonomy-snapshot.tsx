@@ -12,7 +12,7 @@ function StageCounts({ leads }: { leads: Lead[] }) {
   const pending = total - pitchCreated;
 
   return (
-    <div className="grid grid-cols-5 gap-3">
+    <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
       <div>
         <p className="text-xs text-muted-foreground">Discovered</p>
         <p className="font-heading text-xl font-bold">{total}</p>

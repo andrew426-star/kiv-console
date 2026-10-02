@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Syne, Outfit, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -22,6 +22,17 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "K.I.V — Kivaro Intelligence Vectoring",
   description: "The unified operating system for Kivaro AI.",
+  // Opens full-screen from the home screen (app/manifest.ts).
+  appleWebApp: { capable: true, title: "K.I.V.", statusBarStyle: "black-translucent" },
+};
+
+// viewport-fit=cover lets the phone bars reach under the notch and home
+// bar; they pad back out with env(safe-area-inset-*).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#080c0a",
 };
 
 export default function RootLayout({
