@@ -33,7 +33,12 @@ const MAINSTREAM_DOMAINS = [
   "reuters.com",
   "cnbc.com",
   "techcrunch.com",
-  "businessinsider.com",
+  // Business Insider was dropped (Oct 2026): it was over a quarter of the
+  // feed. PitchBook and The Information took its place, for the PE/VC and
+  // tech-funding beats the Intel Hub categories are about. Jarvis's
+  // app/tools/news_feed.py keeps the same list.
+  "pitchbook.com",
+  "theinformation.com",
   "ft.com",
   "forbes.com",
   "fortune.com",
