@@ -118,7 +118,7 @@ async function readIntel(category?: string): Promise<NewsArticle[]> {
     let query = supabase
       .from("intel_articles")
       .select("title, url, source, published_at")
-      .order("published_at", { ascending: false });
+      .order("published_at", { ascending: false, nullsFirst: false });
     if (category) query = query.eq("category", category);
     const { data, error } = await query;
     if (error || !data) return [];
