@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 export type NewsArticle = {
   title: string;
@@ -19,32 +20,35 @@ export function isNewsApiConfigured(): boolean {
 // Company Dashboard's per-client news, keyed on a client name rather than
 // a fixed category — can run their own ad-hoc query through the same
 // NewsAPI plumbing without duplicating it.
-// Mainstream outlets only — Andrew's ask, matching what Intel Hub used to
-// surface before searchIn/excludeDomains tightened relevance (VentureBeat,
-// WSJ, etc.). This is a hard allowlist (NewsAPI's `domains` param), not a
-// preference — confirmed live it also fully replaces the pypi.org
-// exclusion (none of these domains are package-release feeds) and lifts
-// overall result quality further: every article now comes from a
-// recognizable outlet instead of blogs/Hacker-News-style posts.
+// The vetted outlets (Oct 2026): rated for credibility and lean (AllSides,
+// Media Bias/Fact Check), kept when at least one rater puts them at center
+// or right of it with a factual record of Mostly Factual or better, plus
+// non-political trade outlets. The full list, with each outlet's ratings
+// and why the dropped ones were dropped (CNBC, Axios, The Verge, Business
+// Insider, Forbes, Fox Business, IBD...), is the intel_sources table
+// (Jarvis's supabase/migrations/0010). This copy only limits the NewsAPI
+// fallback and ad-hoc searches such as a client's news.
 const MAINSTREAM_DOMAINS = [
-  "venturebeat.com",
-  "wsj.com",
-  "bloomberg.com",
   "reuters.com",
-  "cnbc.com",
-  "techcrunch.com",
-  // Business Insider was dropped (Oct 2026): it was over a quarter of the
-  // feed. PitchBook and The Information took its place, for the PE/VC and
-  // tech-funding beats the Intel Hub categories are about. Jarvis's
-  // app/tools/news_feed.py keeps the same list.
-  "pitchbook.com",
-  "theinformation.com",
+  "wsj.com",
   "ft.com",
-  "forbes.com",
-  "fortune.com",
-  "axios.com",
-  "theverge.com",
+  "bloomberg.com",
+  "barrons.com",
   "marketwatch.com",
+  "economist.com",
+  "financialpost.com",
+  "fortune.com",
+  "washingtonexaminer.com",
+  "realclearmarkets.com",
+  "pionline.com",
+  "institutionalinvestor.com",
+  "hedgeweek.com",
+  "privateequityinternational.com",
+  "pitchbook.com",
+  "techcrunch.com",
+  "theinformation.com",
+  "venturebeat.com",
+  "news.crunchbase.com",
 ].join(",");
 
 export async function fetchArticles(query: string, pageSize: number): Promise<NewsArticle[]> {
@@ -96,6 +100,39 @@ export async function fetchArticles(query: string, pageSize: number): Promise<Ne
 // count low and predictable regardless of how many pages/agents hit it.
 export const NEWS_CACHE_LIFE = { stale: 3600, revalidate: 14400, expire: 86400 } as const;
 
+// The Intel feed: what Jarvis's hourly refresh stored in intel_articles
+// (app/services/intel.py), from the vetted outlets via Google News, a few
+// per category, headline-matched and mixed across outlets. Jarvis's Intel
+// panel reads the same rows, so the two show the same articles. Read with a
+// plain service-role client, not createAdminClient(): that one calls
+// connection(), which cannot run inside "use cache". Without the env vars
+// (a build's prerender) it returns nothing rather than throwing.
+export const INTEL_CACHE_LIFE = { stale: 600, revalidate: 900, expire: 3600 } as const;
+
+async function readIntel(category?: string): Promise<NewsArticle[]> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return [];
+  try {
+    const supabase = createSupabaseClient(url, key, { auth: { persistSession: false } });
+    let query = supabase
+      .from("intel_articles")
+      .select("title, url, source, published_at")
+      .order("published_at", { ascending: false });
+    if (category) query = query.eq("category", category);
+    const { data, error } = await query;
+    if (error || !data) return [];
+    return data.map((row) => ({
+      title: row.title,
+      url: row.url,
+      source: row.source,
+      publishedAt: row.published_at ?? "",
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // Curated to what Andrew actually wants K.I.V. watching for: potential
 // market moves, AI tools/LLM updates, and shifts in hedge funds, PE, VC,
 // or the AI field generally — not a generic fintech/AI grab-bag. Kept as
@@ -109,9 +146,14 @@ const QUERY =
 // per-category feeds below, which those consumers don't need.
 export async function getNewsFeed(): Promise<NewsArticle[]> {
   "use cache";
-  cacheLife(NEWS_CACHE_LIFE);
+  cacheLife(INTEL_CACHE_LIFE);
   cacheTag("news-feed");
-  return fetchArticles(QUERY, 8);
+  // The newest across every Intel category, one copy of each story.
+  const seen = new Set<string>();
+  const intel = (await readIntel())
+    .filter((a) => (seen.has(a.url) ? false : (seen.add(a.url), true)))
+    .slice(0, 8);
+  return intel.length > 0 ? intel : fetchArticles(QUERY, 8);
 }
 
 // Intel Hub's categorized feeds — one slot per theme Andrew named as
@@ -155,10 +197,12 @@ export type NewsCategoryId = (typeof NEWS_CATEGORIES)[number]["id"];
 
 export async function getNewsByCategory(categoryId: NewsCategoryId): Promise<NewsArticle[]> {
   "use cache";
-  cacheLife(NEWS_CACHE_LIFE);
+  cacheLife(INTEL_CACHE_LIFE);
   cacheTag(`news-feed-${categoryId}`);
 
   const category = NEWS_CATEGORIES.find((c) => c.id === categoryId);
   if (!category) return [];
-  return fetchArticles(category.query, 6);
+  const intel = await readIntel(categoryId);
+  // NewsAPI on the vetted list only if the Intel feed has nothing yet.
+  return intel.length > 0 ? intel : fetchArticles(category.query, 6);
 }

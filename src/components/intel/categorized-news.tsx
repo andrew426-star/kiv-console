@@ -1,9 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getNewsByCategory, isNewsApiConfigured, NEWS_CATEGORIES } from "@/lib/news/newsapi";
+import { getNewsByCategory, NEWS_CATEGORIES } from "@/lib/news/newsapi";
 import { NewsTabs } from "./news-tabs";
 
 export async function CategorizedNews() {
-  const configured = isNewsApiConfigured();
   const categories = await Promise.all(
     NEWS_CATEGORIES.map(async (category) => ({
       ...category,
@@ -19,17 +18,19 @@ export async function CategorizedNews() {
         <CardTitle className="font-heading">Sector News</CardTitle>
       </CardHeader>
       <CardContent>
-        {!configured ? (
+        {!anyResults ? (
           <p className="text-sm text-muted-foreground">
-            Not connected — set NEWSAPI_KEY to pull a live feed here.
-          </p>
-        ) : !anyResults ? (
-          <p className="text-sm text-muted-foreground">
-            No articles right now — NewsAPI&apos;s free tier rate-limits at 100 requests/day, so
-            this can go quiet temporarily. It&apos;ll resume on its own.
+            No articles right now. The Intel feed refreshes hourly from vetted outlets (Reuters, WSJ,
+            FT, Bloomberg, Barron&apos;s and others); it&apos;ll fill in on its own.
           </p>
         ) : (
-          <NewsTabs categories={categories} />
+          <>
+            <NewsTabs categories={categories} />
+            <p className="mt-3 text-xs text-muted-foreground">
+              From outlets vetted for credibility and lean, refreshed hourly. The same feed as
+              Jarvis&apos;s Intel.
+            </p>
+          </>
         )}
       </CardContent>
     </Card>
