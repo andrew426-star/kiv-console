@@ -123,11 +123,13 @@ export async function researchCompanyAndContacts(placeId: string): Promise<Resea
 
   // Hunter columns: place_id, formatted_address, name, website, user_ratings_total,
   // rating, email, first_name, last_name, position, position_raw, seniority,
-  // department, linkedin, twitter, phone_number
-  const contactRows = hunterRows.filter((r) => r[0] === placeId);
-  if (contactRows.length === 0) {
-    throw new Error("No enriched contacts found for this lead — run Hunter enrichment first");
+  // department, linkedin, twitter, phone_number. A row with no email is a
+  // search that found nobody (enrich.ts): research goes ahead without contacts.
+  const leadRows = hunterRows.filter((r) => r[0] === placeId);
+  if (leadRows.length === 0) {
+    throw new Error("This lead has not been searched on Hunter yet — run Hunter enrichment first");
   }
+  const contactRows = leadRows.filter((r) => r[6]);
   const contacts: ContactInput[] = contactRows.map((r) => ({
     name: [r[7], r[8]].filter(Boolean).join(" ") || r[6],
     title: r[9] || r[10] || "",

@@ -15,7 +15,9 @@ type HunterEmail = {
   phone_number?: string;
 };
 
-async function huntDomain(domain: string): Promise<HunterEmail[]> {
+type HunterSearch = { emails: HunterEmail[]; known: number | null };
+
+async function huntDomain(domain: string): Promise<HunterSearch> {
   const apiKey = process.env.HUNTER_API_KEY;
   if (!apiKey) throw new Error("HUNTER_API_KEY is not configured");
 
@@ -23,8 +25,15 @@ async function huntDomain(domain: string): Promise<HunterEmail[]> {
     `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${apiKey}`,
   );
   if (!res.ok) throw new Error(`Hunter domain search failed: ${await res.text()}`);
-  const data = (await res.json()) as { data?: { emails?: HunterEmail[] } };
-  return data.data?.emails ?? [];
+  const data = (await res.json()) as {
+    data?: { emails?: HunterEmail[] };
+    meta?: { results?: number };
+    errors?: { details?: string }[];
+  };
+  if (data.errors?.length) {
+    throw new Error(`Hunter domain search failed: ${data.errors.map((e) => e.details).join("; ")}`);
+  }
+  return { emails: data.data?.emails ?? [], known: data.meta?.results ?? null };
 }
 
 function extractDomain(website: string): string {
@@ -36,7 +45,7 @@ function extractDomain(website: string): string {
   }
 }
 
-export type EnrichResult = { contactsFound: number };
+export type EnrichResult = { contactsFound: number; domain: string };
 
 // Stage 1c — Hunter.io domain search for one lead, manually triggered (not
 // part of the daily auto-run — matches the spec's own "only when prompted"
@@ -54,7 +63,28 @@ export async function enrichWithHunter(placeId: string): Promise<EnrichResult> {
   const [name, website, , formattedAddress, userRatingsTotal, rating] = row;
   if (!website) throw new Error(`Lead "${name}" has no website to enrich from`);
 
-  const emails = await huntDomain(extractDomain(website));
+  const domain = extractDomain(website);
+  const { emails, known } = await huntDomain(domain);
+
+  if (emails.length === 0) {
+    // Only a search where Hunter itself says it knows nobody at the domain
+    // is recorded as done. No emails while it reports results (or reports
+    // nothing at all) has meant a wrong or restricted HUNTER_API_KEY in this
+    // deployment, which must not mark good leads as having no contacts.
+    if (known !== 0) {
+      throw new Error(
+        `Hunter returned no emails for ${domain} but reports ${known ?? "an unknown number of"} results. ` +
+          "Check HUNTER_API_KEY in this deployment's environment.",
+      );
+    }
+    // One row with the lead's details and no email: "searched, nobody
+    // found". It moves the lead on to research (stage.ts), and the batch
+    // run's "already enriched" check (batch.ts) skips searching it again.
+    await appendRows(accessToken, GLE_SPREADSHEET_ID, HUNTER_TAB, [
+      [placeId, formattedAddress ?? "", name ?? "", website, userRatingsTotal ?? "", rating ?? ""],
+    ]);
+    return { contactsFound: 0, domain };
+  }
 
   const rows = emails.map((e) => [
     placeId,
@@ -76,5 +106,5 @@ export async function enrichWithHunter(placeId: string): Promise<EnrichResult> {
   ]);
   await appendRows(accessToken, GLE_SPREADSHEET_ID, HUNTER_TAB, rows);
 
-  return { contactsFound: emails.length };
+  return { contactsFound: emails.length, domain };
 }

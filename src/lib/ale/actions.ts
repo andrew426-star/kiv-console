@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { discoverCompanies } from "./discover";
-import { enrichWithHunter } from "./enrich";
+import { enrichWithHunter, type EnrichResult } from "./enrich";
 import { researchCompanyAndContacts } from "./research";
 import { generateSalesPitch } from "./salespitch";
 import { logAgentActivity } from "@/lib/agents/log";
@@ -31,24 +31,31 @@ export async function runDiscovery(formData: FormData) {
   }
 }
 
-export async function runEnrichment(placeId: string) {
+// Returns the outcome rather than throwing: in production Next.js replaces
+// a thrown server-action error with a generic message, and the button needs
+// to say what happened (nobody found, or a misconfigured Hunter key).
+export type EnrichOutcome = ({ ok: true } & EnrichResult) | { ok: false; error: string };
+
+export async function runEnrichment(placeId: string): Promise<EnrichOutcome> {
   try {
     const result = await enrichWithHunter(placeId);
     await logAgentActivity({
       agentId: "pipeline",
       action: "Enriched lead with Hunter",
-      detail: `${result.contactsFound} contacts found`,
+      detail: `${result.contactsFound} contacts found at ${result.domain}`,
       status: "success",
     }).catch(() => {});
     revalidatePath("/autonomy");
+    return { ok: true, ...result };
   } catch (err) {
+    const error = err instanceof Error ? err.message : "Unknown error";
     await logAgentActivity({
       agentId: "pipeline",
       action: "Enrichment failed",
-      detail: err instanceof Error ? err.message : "Unknown error",
+      detail: error,
       status: "error",
     }).catch(() => {});
-    throw err;
+    return { ok: false, error };
   }
 }
 

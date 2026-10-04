@@ -2,7 +2,7 @@ import type { Lead } from "./queries";
 
 // Where a lead sits in ALE, i.e. what it needs next. Order matters: each
 // stage requires the one before it (Hunter needs a website, research needs
-// contacts, a pitch needs research, a send needs a drafted pitch).
+// a Hunter search, a pitch needs research, a send needs a drafted pitch).
 export const LEAD_STAGES = ["no_website", "enrich", "research", "pitch", "drafted", "sent"] as const;
 export type LeadStage = (typeof LEAD_STAGES)[number];
 
@@ -19,7 +19,9 @@ export function leadStage(lead: Lead): LeadStage {
   if (lead.pitched) return "sent";
   if (lead.pitchCreated) return "drafted";
   if (lead.researched) return "pitch";
-  if (lead.contactCount > 0) return "research";
+  // Searched with nobody found still goes on: research works from the
+  // company's own site and needs no contacts.
+  if (lead.contactCount > 0 || lead.hunterSearched) return "research";
   if (lead.website) return "enrich";
   return "no_website";
 }

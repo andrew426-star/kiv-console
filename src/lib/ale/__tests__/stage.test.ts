@@ -12,6 +12,7 @@ function lead(overrides: Partial<Lead>): Lead {
     state: "",
     website: null,
     contactCount: 0,
+    hunterSearched: false,
     researched: false,
     pitchCreated: false,
     pitched: false,
@@ -25,6 +26,8 @@ describe("leadStage", () => {
     expect(leadStage(lead({}))).toBe("no_website");
     expect(leadStage(lead({ website: "https://a.com" }))).toBe("enrich");
     expect(leadStage(lead({ website: "https://a.com", contactCount: 2 }))).toBe("research");
+    // Searched on Hunter, nobody found: on to research, not stuck at enrich.
+    expect(leadStage(lead({ website: "https://a.com", hunterSearched: true }))).toBe("research");
     expect(leadStage(lead({ contactCount: 2, researched: true }))).toBe("pitch");
     expect(leadStage(lead({ researched: true, pitchCreated: true }))).toBe("drafted");
     expect(leadStage(lead({ pitchCreated: true, pitched: true }))).toBe("sent");

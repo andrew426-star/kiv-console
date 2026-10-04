@@ -17,7 +17,7 @@ import { PitchButton } from "./pitch-button";
 // The four steps a lead moves through, shown as a compact track instead of
 // four table columns.
 const STEPS: { label: string; done: (lead: Lead) => boolean }[] = [
-  { label: "Contacts", done: (l) => l.contactCount > 0 },
+  { label: "Contacts", done: (l) => l.contactCount > 0 || l.hunterSearched },
   { label: "Research", done: (l) => l.researched },
   { label: "Draft", done: (l) => l.pitchCreated },
   { label: "Sent", done: (l) => l.pitched },
@@ -39,7 +39,11 @@ function StepTrack({ lead }: { lead: Lead }) {
                 done ? "border-kv-mint/40 text-kv-mint" : "border-border text-muted-foreground/70",
               )}
             >
-              {step.label === "Contacts" && done ? `${lead.contactCount} contacts` : step.label}
+              {step.label === "Contacts" && done
+                ? lead.contactCount > 0
+                  ? `${lead.contactCount} contacts`
+                  : "No contacts"
+                : step.label}
             </span>
           </div>
         );

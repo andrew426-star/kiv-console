@@ -22,6 +22,9 @@ export type Lead = {
   state: string;
   website: string | null;
   contactCount: number;
+  // Hunter has been searched for this lead, whether or not it found anyone
+  // (a search that found nobody leaves one row with no email; enrich.ts).
+  hunterSearched: boolean;
   researched: boolean;
   // A drafted pitch exists in the ALE Sales Pitch Log — NOT the same as
   // having been sent. Kept distinct from `pitched` below because the two
@@ -77,12 +80,15 @@ export async function getLeads(): Promise<LeadsResult> {
     // Websites columns: name, website, place_id, formatted_address, user_ratings_total, rating
     const websiteByPlaceId = new Map(websiteRows.map((r) => [r[2], r[1]]));
 
-    // Hunter columns: place_id, ... one row per contact found
+    // Hunter columns: place_id, ... email (column 7), ... One row per contact
+    // found, or a single row with no email when the search found nobody.
     const contactCountByPlaceId = new Map<string, number>();
+    const hunterSearched = new Set<string>();
     for (const r of hunterRows) {
       const placeId = r[0];
       if (!placeId) continue;
-      contactCountByPlaceId.set(placeId, (contactCountByPlaceId.get(placeId) ?? 0) + 1);
+      hunterSearched.add(placeId);
+      if (r[6]) contactCountByPlaceId.set(placeId, (contactCountByPlaceId.get(placeId) ?? 0) + 1);
     }
 
     const researched = new Set(researchedPlaceIds);
@@ -108,6 +114,7 @@ export async function getLeads(): Promise<LeadsResult> {
           state: r[7] ?? "",
           website: websiteByPlaceId.get(r[1]) ?? null,
           contactCount: contactCountByPlaceId.get(r[1]) ?? 0,
+          hunterSearched: hunterSearched.has(r[1]),
           // Companies/Sales Pitch Log tabs have no place_id column (pre-existing
           // schema) — both keyed by Company Name instead.
           researched: researched.has(r[0]),
