@@ -1,5 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import type { AssetClass } from "@/lib/market/alpaca-bars";
+import {
+  CRYPTO_UNIVERSE,
+  FUTURES_UNIVERSE,
+  METAL_UNIVERSE,
+  STOCK_UNIVERSE,
+  type AssetClass,
+} from "@/lib/market/alpaca-bars";
+import { chartSource, explainSignal, type SignalSource } from "@/lib/trading/signals/explain";
 import type { Direction, StrategyId } from "@/lib/trading/types";
 
 export interface KillSwitchStatus {
@@ -30,7 +37,16 @@ export interface TradingSignalRow {
   reasons: string[];
   positionSizeUsd: number;
   createdAt: string;
+  // Common name, plain-English reasoning and sources (explain.ts). Stored by
+  // the scan; filled in here for signals from before it stored them.
+  assetName: string;
+  summary: string;
+  sources: SignalSource[];
 }
+
+const ASSET_NAMES = new Map(
+  [...STOCK_UNIVERSE, ...CRYPTO_UNIVERSE, ...METAL_UNIVERSE, ...FUTURES_UNIVERSE].map((a) => [a.symbol, a.label]),
+);
 
 type RawSignalRow = {
   id: string;
@@ -39,6 +55,13 @@ type RawSignalRow = {
   strategy_id: StrategyId;
   direction: Direction;
   confidence: number;
+  entry: number;
+  stop: number;
+  target: number;
+  rationale: string[] | null;
+  asset_name: string | null;
+  summary: string | null;
+  sources: SignalSource[] | null;
   created_at: string;
   trading_decisions: { approved: boolean; reasons: string[]; position_size_usd: number }[];
 };
@@ -52,7 +75,7 @@ export async function getRecentTradingSignals(limit = 15): Promise<TradingSignal
   const { data, error } = await supabase
     .from("trading_signals")
     .select(
-      "id, symbol, asset_class, strategy_id, direction, confidence, created_at, trading_decisions(approved, reasons, position_size_usd)",
+      "id, symbol, asset_class, strategy_id, direction, confidence, entry, stop, target, rationale, asset_name, summary, sources, created_at, trading_decisions(approved, reasons, position_size_usd)",
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -62,6 +85,7 @@ export async function getRecentTradingSignals(limit = 15): Promise<TradingSignal
   const rows = data as unknown as RawSignalRow[];
   return rows.map((row) => {
     const decision = row.trading_decisions[0];
+    const assetName = row.asset_name ?? ASSET_NAMES.get(row.symbol) ?? row.symbol;
     return {
       id: row.id,
       symbol: row.symbol,
@@ -73,6 +97,21 @@ export async function getRecentTradingSignals(limit = 15): Promise<TradingSignal
       reasons: decision?.reasons ?? [],
       positionSizeUsd: decision?.position_size_usd ?? 0,
       createdAt: row.created_at,
+      assetName,
+      summary:
+        row.summary ??
+        explainSignal(
+          {
+            direction: row.direction,
+            entry: Number(row.entry),
+            stop: Number(row.stop),
+            target: Number(row.target),
+            rationale: row.rationale ?? [],
+          },
+          row.strategy_id,
+          assetName,
+        ),
+      sources: row.sources?.length ? row.sources : [chartSource(row.symbol, row.asset_class)],
     };
   });
 }

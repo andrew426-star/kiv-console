@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -74,7 +75,7 @@ export async function TradingSignals() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Symbol</TableHead>
+                  <TableHead>Asset</TableHead>
                   <TableHead>Strategy</TableHead>
                   <TableHead>Direction</TableHead>
                   <TableHead>Confidence</TableHead>
@@ -84,8 +85,15 @@ export async function TradingSignals() {
               </TableHeader>
               <TableBody>
                 {signals.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium">{s.symbol}</TableCell>
+                  <Fragment key={s.id}>
+                  <TableRow className="border-b-0">
+                    <TableCell>
+                      <div className="font-medium">{s.assetName.replace(/\s*\(.*\)$/, "")}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {s.symbol}
+                        {/\(.*proxy\)/i.test(s.assetName) ? " · ETF proxy" : ""}
+                      </div>
+                    </TableCell>
                     <TableCell>{strategyName(s.strategyId)}</TableCell>
                     <TableCell>
                       <span className={s.direction === "long" ? "text-kv-mint" : "text-destructive"}>
@@ -106,6 +114,36 @@ export async function TradingSignals() {
                       {s.approved ? formatCurrency(s.positionSizeUsd) : "—"}
                     </TableCell>
                   </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={6} className="pt-0">
+                      <details className="text-sm">
+                        <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                          Why
+                        </summary>
+                        <p className="mt-1 max-w-3xl whitespace-normal text-muted-foreground">{s.summary}</p>
+                        {!s.approved && s.reasons.length > 0 ? (
+                          <p className="mt-1 max-w-3xl whitespace-normal text-xs text-muted-foreground">
+                            Not approved: {s.reasons.join(" ")}
+                          </p>
+                        ) : null}
+                        <ul className="mt-1 flex flex-col gap-0.5 text-xs">
+                          {s.sources.map((source) => (
+                            <li key={source.url} className="whitespace-normal">
+                              <a href={source.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                                {source.title}
+                              </a>
+                              <span className="text-muted-foreground">
+                                {" "}
+                                · {source.publisher}
+                                {source.kind === "news" ? " · news, for context" : ""}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    </TableCell>
+                  </TableRow>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>

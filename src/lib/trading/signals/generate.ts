@@ -15,6 +15,7 @@ import { syncStrategyRegistry } from "../strategies/sync";
 import { evaluateSignal } from "../risk/limits";
 import { isTradingHalted } from "../risk/kill-switch";
 import type { PortfolioContext, RiskCheckResult, StrategyId, StrategySignal } from "../types";
+import { signalContext, type SignalContext } from "./explain";
 
 // Enough for every strategy's longest lookback (mean-reversion needs
 // trendPeriod(50) + trendSlopeLookback(10) + 2 = 62) with real headroom —
@@ -116,7 +117,10 @@ export async function generateSignalsForUniverse(): Promise<SignalScanSummary> {
             signalsRejected++;
           }
 
-          await persistSignalAndDecision(admin, asset.symbol, assetClass, strategyId, signal, risk);
+          // Common name, plain reasoning and sources, stored with the
+          // signal. News only for approved ones: those are what get read.
+          const explained = await signalContext(signal, strategyId, asset.symbol, assetClass, asset.label, risk.approved);
+          await persistSignalAndDecision(admin, asset.symbol, assetClass, strategyId, signal, risk, explained);
         } catch (err) {
           errors.push(`${asset.symbol}/${strategyId}: ${err instanceof Error ? err.message : "signal generation failed"}`);
         }
@@ -141,6 +145,7 @@ async function persistSignalAndDecision(
   strategyId: StrategyId,
   signal: StrategySignal,
   risk: RiskCheckResult,
+  explained: SignalContext,
 ): Promise<void> {
   const { data: signalRow, error: signalError } = await admin
     .from("trading_signals")
@@ -154,6 +159,9 @@ async function persistSignalAndDecision(
       stop: signal.stop,
       target: signal.target,
       rationale: signal.rationale,
+      asset_name: explained.assetName,
+      summary: explained.summary,
+      sources: explained.sources,
     })
     .select()
     .single();
