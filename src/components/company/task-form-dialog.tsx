@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createTaskRecord, updateTaskRecord } from "@/lib/company/actions";
 import type { VariantProps } from "class-variance-authority";
+import { DelegationFields, type DelegationValues } from "./delegation-fields";
 
 const STATUSES = ["todo", "in_progress", "blocked", "done"] as const;
 
@@ -36,7 +37,7 @@ export function TaskFormDialog({
     project_id: string;
     assignee_id: string | null;
     due_date: string | null;
-  };
+  } & Partial<DelegationValues>;
   defaultProjectId?: string;
   projects: { id: string; name: string }[];
   profiles: { id: string; full_name: string }[];
@@ -60,7 +61,7 @@ export function TaskFormDialog({
       <DialogTrigger render={<Button variant={triggerVariant} size={triggerSize} />}>
         {triggerLabel}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{task ? "Edit task" : "New task"}</DialogTitle>
         </DialogHeader>
@@ -123,6 +124,7 @@ export function TaskFormDialog({
               ))}
             </select>
           </div>
+          <DelegationFields values={task && { delegate_agent_id: task.delegate_agent_id ?? null, delegate_actions: task.delegate_actions ?? null, delegation_notes: task.delegation_notes ?? null }} scope="task" />
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
               {task ? "Save" : "Create"}

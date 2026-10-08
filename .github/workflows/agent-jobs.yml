@@ -6,8 +6,10 @@ name: Agent launch jobs
 # drifts from it). GitHub cron is UTC-only, so every job is listed at two
 # UTC times, one for daylight time (CDT, UTC-5) and one for standard time
 # (CST, UTC-6), and the route runs only the one matching Central's current
-# offset. The report is posted to the team channel; scheduled runs can read
-# and draft but never send or log.
+# offset. The report is posted to the team channel. Report jobs can read
+# and draft but never send or log; *-autonomous jobs work the tasks Andrew
+# delegated to that agent in K.I.V., using only the actions he approved
+# there, and post nothing when nothing is delegated.
 on:
   schedule:
     - cron: "0 14 * * 1,2,3,4,5" # pipeline-standup, weekdays 9:00am CDT
@@ -24,6 +26,16 @@ on:
     - cron: "0 18 * * 4" # pulse-build-in-public, Thu 12:00pm CST
     - cron: "0 23 * * 0" # chronicle-weekly-review, Sun 6:00pm CDT
     - cron: "0 0 * * 1" # chronicle-weekly-review, Sun 6:00pm CST
+    - cron: "15 12 * * 1,2,3,4,5" # chronicle-autonomous, weekdays 7:15am CDT
+    - cron: "15 13 * * 1,2,3,4,5" # chronicle-autonomous, weekdays 7:15am CST
+    - cron: "30 12 * * 1,2,3,4,5" # atlas-autonomous, weekdays 7:30am CDT
+    - cron: "30 13 * * 1,2,3,4,5" # atlas-autonomous, weekdays 7:30am CST
+    - cron: "45 12 * * 1,2,3,4,5" # pulse-autonomous, weekdays 7:45am CDT
+    - cron: "45 13 * * 1,2,3,4,5" # pulse-autonomous, weekdays 7:45am CST
+    - cron: "30 15 * * 1,2,3,4,5" # pipeline-autonomous-am, weekdays 10:30am CDT
+    - cron: "30 16 * * 1,2,3,4,5" # pipeline-autonomous-am, weekdays 10:30am CST
+    - cron: "0 19 * * 1,2,3,4,5" # pipeline-autonomous-pm, weekdays 2:00pm CDT
+    - cron: "0 20 * * 1,2,3,4,5" # pipeline-autonomous-pm, weekdays 2:00pm CST
   workflow_dispatch:
     inputs:
       job:
@@ -38,6 +50,11 @@ on:
           - pulse-build-in-public
           - chronicle-midweek-pace
           - chronicle-weekly-review
+          - chronicle-autonomous
+          - atlas-autonomous
+          - pulse-autonomous
+          - pipeline-autonomous-am
+          - pipeline-autonomous-pm
 
 jobs:
   run-agent-job:
@@ -64,6 +81,16 @@ jobs:
               "0 18 * * 4") job=pulse-build-in-public ;;
               "0 23 * * 0") job=chronicle-weekly-review ;;
               "0 0 * * 1") job=chronicle-weekly-review ;;
+              "15 12 * * 1,2,3,4,5") job=chronicle-autonomous ;;
+              "15 13 * * 1,2,3,4,5") job=chronicle-autonomous ;;
+              "30 12 * * 1,2,3,4,5") job=atlas-autonomous ;;
+              "30 13 * * 1,2,3,4,5") job=atlas-autonomous ;;
+              "45 12 * * 1,2,3,4,5") job=pulse-autonomous ;;
+              "45 13 * * 1,2,3,4,5") job=pulse-autonomous ;;
+              "30 15 * * 1,2,3,4,5") job=pipeline-autonomous-am ;;
+              "30 16 * * 1,2,3,4,5") job=pipeline-autonomous-am ;;
+              "0 19 * * 1,2,3,4,5") job=pipeline-autonomous-pm ;;
+              "0 20 * * 1,2,3,4,5") job=pipeline-autonomous-pm ;;
               *) echo "No job for schedule '${{ github.event.schedule }}'"; exit 1 ;;
             esac
           fi

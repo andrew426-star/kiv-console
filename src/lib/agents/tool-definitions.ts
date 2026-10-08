@@ -14,6 +14,7 @@ import { sendOutreachEmailForAgent, sendBulkOutreachEmailsForAgent } from "./too
 import { getOutreachContactsForAgent } from "./tools/outreach-contacts";
 import { getLaunchStatusForAgent, logLaunchActivityForAgent } from "./tools/launch";
 import { getTasksDueForAgent } from "./tools/tasks-due";
+import { getMyTasksForAgent, updateMyTaskForAgent } from "./tools/agent-tasks";
 
 const NEWS_FEED_DECL: GeminiFunctionDeclaration = {
   name: "get_news_feed",
@@ -217,6 +218,35 @@ const TASKS_DUE_DECL: GeminiFunctionDeclaration = {
   },
 };
 
+const MY_TASKS_DECL: GeminiFunctionDeclaration = {
+  name: "get_my_tasks",
+  description:
+    "Get the open Company Dashboard tasks Andrew has delegated to you, directly or through their project. Each has its id, title, description, due date, project, Andrew's delegation notes (what he wants done), the actions he approved you to take on it without asking, and your last progress report.",
+  parameters: { type: "OBJECT", properties: {} },
+};
+
+const UPDATE_MY_TASK_DECL: GeminiFunctionDeclaration = {
+  name: "update_my_task",
+  description:
+    "Record progress on one task delegated to you: a short report of what you actually did and what is next, and optionally a new status. Use done only when the task's whole outcome is achieved; keep ongoing or recurring work in_progress; use blocked when it needs Andrew, and say exactly what you need from him. Only works on tasks delegated to you.",
+  parameters: {
+    type: "OBJECT",
+    properties: {
+      taskId: { type: "STRING", description: "The task id from get_my_tasks." },
+      status: {
+        type: "STRING",
+        format: "enum",
+        enum: ["todo", "in_progress", "blocked", "done"],
+      },
+      report: {
+        type: "STRING",
+        description: "What you did (only real tool results), what it produced, and the next step.",
+      },
+    },
+    required: ["taskId", "report"],
+  },
+};
+
 type ToolContext = { agentId: string };
 
 // name -> handler, used by the agent loop (src/lib/agents/respond.ts) once
@@ -237,6 +267,8 @@ const HANDLERS: Record<
   get_tasks_due: async (args) =>
     getTasksDueForAgent(typeof args.withinDays === "number" ? args.withinDays : undefined),
   log_launch_activity: async (args, { agentId }) => logLaunchActivityForAgent(agentId, args),
+  get_my_tasks: async (_args, { agentId }) => getMyTasksForAgent(agentId),
+  update_my_task: async (args, { agentId }) => updateMyTaskForAgent(agentId, args),
   generate_showcase: async (args) => generateShowcaseForAgent(String(args.companyName ?? "")),
   create_github_issue: async (args) =>
     createGithubIssue(String(args.title ?? ""), String(args.body ?? "")),
@@ -274,24 +306,33 @@ const BASE_TOOLS: GeminiFunctionDeclaration[] = [
   PIPELINE_STATUS_DECL,
   LAUNCH_STATUS_DECL,
   LOG_LAUNCH_ACTIVITY_DECL,
+  MY_TASKS_DECL,
+  UPDATE_MY_TASK_DECL,
 ];
 
 // Per-agent tool matrix, on top of BASE_TOOLS, for the four launch agents
 // in roster.ts.
-// Tools that act on the outside world or write records. A scheduled job
+// Tools that act on the outside world or write records. A scheduled report
 // (src/lib/agents/jobs.ts) runs with nobody there to confirm an action, so
-// these are withheld from it.
-const ACTING_TOOLS = new Set([
+// these are withheld from it. An autonomous run gets back only the ones
+// Andrew approved by delegating work (src/lib/agents/delegation.ts).
+export const ACTING_TOOLS = new Set([
   "send_outreach_email",
   "send_bulk_outreach_emails",
   "create_github_issue",
   "log_launch_activity",
   "generate_showcase",
+  "update_my_task",
 ]);
+
+// "reply": answering Andrew in Slack, every tool. "report": a scheduled
+// report, read-only. "autonomous": working delegated tasks unattended,
+// read-only plus update_my_task plus `approvedActions`.
+export type AgentRunMode = "reply" | "report" | "autonomous";
 
 export function getToolsForAgent(
   agentId: string,
-  { scheduled = false }: { scheduled?: boolean } = {},
+  { mode = "reply", approvedActions = [] }: { mode?: AgentRunMode; approvedActions?: string[] } = {},
 ): GeminiTool[] {
   const specific: GeminiFunctionDeclaration[] = (() => {
     switch (agentId) {
@@ -320,8 +361,9 @@ export function getToolsForAgent(
     }
   })();
 
+  const approved = new Set(mode === "autonomous" ? ["update_my_task", ...approvedActions] : []);
   const declarations = [...BASE_TOOLS, ...specific].filter(
-    (d) => !scheduled || !ACTING_TOOLS.has(d.name),
+    (d) => mode === "reply" || !ACTING_TOOLS.has(d.name) || approved.has(d.name),
   );
   return [{ functionDeclarations: declarations }];
 }

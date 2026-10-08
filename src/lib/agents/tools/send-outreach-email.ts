@@ -22,6 +22,8 @@ import {
 } from "@/lib/ale/spreadsheets";
 import { logAgentActivity } from "@/lib/agents/log";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { todayInCalendarZone } from "@/lib/calendar/organize";
+import { centralUtcOffsetHours } from "@/lib/agents/jobs";
 
 export type SendOutreachEmailResult =
   | { status: "google_not_connected" }
@@ -94,6 +96,25 @@ async function getSendWindow(): Promise<SendWindow> {
     limitPerHour: MAX_SENDS_PER_HOUR,
     slotFreesAt: oldest ? new Date(new Date(oldest).getTime() + HOUR_MS).toISOString() : null,
   };
+}
+
+// Every successful send since midnight Central today — manual, drip and
+// autonomous alike — for the autonomous daily cap
+// (src/lib/agents/autonomy.ts).
+export async function countSendsToday(now: Date = new Date()): Promise<number> {
+  const today = todayInCalendarZone(now);
+  const midnight = new Date(`${today}T00:00:00Z`);
+  midnight.setUTCHours(centralUtcOffsetHours(now));
+  const admin = await createAdminClient();
+  const { count, error } = await admin
+    .from("agent_activity_log")
+    .select("*", { count: "exact", head: true })
+    .eq("agent_id", "pipeline")
+    .eq("action", SEND_LOG_ACTION)
+    .eq("status", "success")
+    .gte("created_at", midnight.toISOString());
+  if (error) throw new Error(error.message);
+  return count ?? 0;
 }
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));

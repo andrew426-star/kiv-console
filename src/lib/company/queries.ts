@@ -96,7 +96,9 @@ export async function getProjects() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("projects")
-    .select("id, name, status, client_id, owner_id, clients(name), profiles(full_name)")
+    .select(
+      "id, name, status, client_id, owner_id, delegate_agent_id, delegate_actions, delegation_notes, clients(name), profiles(full_name)",
+    )
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];
@@ -106,7 +108,9 @@ export async function getTasks() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("tasks")
-    .select("id, title, status, due_date, project_id, assignee_id, projects(name), profiles(full_name)")
+    .select(
+      "id, title, status, due_date, project_id, assignee_id, delegate_agent_id, delegate_actions, delegation_notes, agent_report, agent_reported_at, projects(name), profiles(full_name)",
+    )
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];

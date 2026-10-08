@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { centralUtcOffsetHours, findJob, utcCron } from "@/lib/agents/jobs";
 import { generateAgentReply } from "@/lib/agents/respond";
+import { runAutonomousShift } from "@/lib/agents/autonomy";
 import { logAgentActivity } from "@/lib/agents/log";
 import { getSlackCredentials } from "@/lib/slack/credentials";
 import { postSlackMessage } from "@/lib/slack/web-api";
@@ -53,6 +54,20 @@ export async function POST(
   }
 
   try {
+    if (job.mode === "autonomous") {
+      const result = await runAutonomousShift(job.agentId, job.prompt);
+      // Nothing delegated: say nothing in Slack rather than post an empty run.
+      if (!result.ran) return NextResponse.json({ ok: true, job: job.id, skipped: result.reason });
+      await postSlackMessage(credentials.botToken, { channel, text: `*${job.title}*\n${result.report}` });
+      await logAgentActivity({
+        agentId: job.agentId,
+        action: `Autonomous: ${job.title}`,
+        detail: `${result.taskCount} delegated task(s); approved actions: ${result.approvedActions.join(", ") || "none"}`,
+        status: "success",
+      });
+      return NextResponse.json({ ok: true, job: job.id, agent: job.agentId, tasks: result.taskCount });
+    }
+
     const report = await generateAgentReply(job.agentId, job.prompt, [], { scheduled: true });
     await postSlackMessage(credentials.botToken, { channel, text: `*${job.title}*\n${report}` });
     await logAgentActivity({ agentId: job.agentId, action: `Scheduled: ${job.title}`, status: "success" });

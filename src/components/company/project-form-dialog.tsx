@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createProjectRecord, updateProjectRecord } from "@/lib/company/actions";
 import type { VariantProps } from "class-variance-authority";
+import { DelegationFields, type DelegationValues } from "./delegation-fields";
 
 const STATUSES = ["planning", "active", "blocked", "completed", "archived"] as const;
 
@@ -28,7 +29,7 @@ export function ProjectFormDialog({
   triggerLabel: string;
   triggerVariant?: VariantProps<typeof buttonVariants>["variant"];
   triggerSize?: VariantProps<typeof buttonVariants>["size"];
-  project?: { id: string; name: string; status: string; client_id: string | null; owner_id: string | null };
+  project?: { id: string; name: string; status: string; client_id: string | null; owner_id: string | null } & Partial<DelegationValues>;
   clients: { id: string; name: string }[];
   profiles: { id: string; full_name: string }[];
 }) {
@@ -51,7 +52,7 @@ export function ProjectFormDialog({
       <DialogTrigger render={<Button variant={triggerVariant} size={triggerSize} />}>
         {triggerLabel}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{project ? "Edit project" : "New project"}</DialogTitle>
         </DialogHeader>
@@ -107,6 +108,7 @@ export function ProjectFormDialog({
               ))}
             </select>
           </div>
+          <DelegationFields values={project && { delegate_agent_id: project.delegate_agent_id ?? null, delegate_actions: project.delegate_actions ?? null, delegation_notes: project.delegation_notes ?? null }} scope="project" />
           <DialogFooter>
             <Button type="submit" disabled={isPending}>
               {project ? "Save" : "Create"}

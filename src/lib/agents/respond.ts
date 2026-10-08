@@ -11,9 +11,9 @@ Target customers (the only niche that matters right now): ${Object.values(SEGMEN
 
 The plan, in phases: ${PHASES.map((p) => `${p.label} (${p.start} to ${p.end}): ${p.goal}`).join(" ")}
 
-get_launch_status shows where the plan stands. When Andrew tells you something real happened (a call, a pilot, a commitment, a post, a publicity win), record it with log_launch_activity in the same turn and say that you did. Never log plans, drafts or ideas as if they happened.`;
+get_launch_status shows where the plan stands. get_my_tasks lists the Company Dashboard work Andrew has delegated to you; when you make progress on one, record it with update_my_task. When Andrew tells you something real happened (a call, a pilot, a commitment, a post, a publicity win), record it with log_launch_activity in the same turn and say that you did. Never log plans, drafts or ideas as if they happened.`;
 
-function buildSystemPrompt(agentId: string): string {
+export function buildSystemPrompt(agentId: string): string {
   const found = findAgent(agentId);
   if (!found) throw new Error(`Unknown agentId: ${agentId}`);
   const { agent, division } = found;
@@ -77,7 +77,7 @@ export async function generateAgentReply(
   const found = findAgent(agentId);
   if (!found) throw new Error(`Unknown agentId: ${agentId}`);
 
-  const tools = getToolsForAgent(agentId, { scheduled });
+  const tools = getToolsForAgent(agentId, { mode: scheduled ? "report" : "reply" });
   // Only tools actually offered to this agent in this run can execute — a
   // model naming any other tool (e.g. a send tool withheld from a scheduled
   // job) gets an error back instead of the action.

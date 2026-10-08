@@ -3,7 +3,13 @@ import { getProjects, getTasks, getFormOptions } from "@/lib/company/queries";
 import { deleteProjectRecord, deleteTaskRecord } from "@/lib/company/actions";
 import { describeDue, sortTasksByDue, type DueTone } from "@/lib/company/due";
 import { todayInCalendarZone } from "@/lib/calendar/organize";
-import { formatDateOnly } from "@/lib/time";
+import { formatDateOnly, formatDateTime } from "@/lib/time";
+import {
+  DELEGABLE_ACTIONS,
+  DELEGATE_AGENT_NAMES,
+  effectiveDelegation,
+  type Delegation,
+} from "@/lib/agents/delegation";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +48,28 @@ function DueBadge({ task, today }: { task: Task; today: string }) {
       title={due.date ?? undefined}
     >
       {due.label}
+    </Badge>
+  );
+}
+
+// Who the work is delegated to, and what that agent is approved to do on
+// it without asking — the delegation is the approval.
+function DelegationBadge({ delegation }: { delegation: Delegation | null }) {
+  if (!delegation) return <span className="text-muted-foreground">—</span>;
+  const labels = DELEGABLE_ACTIONS[delegation.agentId]
+    .filter((a) => delegation.actions.includes(a.tool))
+    .map((a) => a.label);
+  const title = [
+    labels.length ? `Approved: ${labels.join("; ")}` : "Approved: research, draft and report only",
+    delegation.notes ? `Instructions: ${delegation.notes}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return (
+    <Badge variant="outline" className="border-primary/40 text-primary" title={title}>
+      {DELEGATE_AGENT_NAMES[delegation.agentId]}
+      {delegation.source === "project" ? " (project)" : ""}
+      {delegation.actions.length > 0 ? ` · ${delegation.actions.length} approved` : ""}
     </Badge>
   );
 }
@@ -99,6 +127,10 @@ export async function ProjectTaskBoard() {
               (t) => describeDue(t.due_date, t.status, today).tone === "overdue",
             ).length;
             const nextDue = openTasks.find((t) => t.due_date)?.due_date ?? null;
+            const projectDelegation = effectiveDelegation(
+              { delegate_agent_id: null, delegate_actions: null, delegation_notes: null },
+              project,
+            );
 
             return (
               <details
@@ -112,6 +144,7 @@ export async function ProjectTaskBoard() {
                   <FolderOpenIcon className="hidden size-4 shrink-0 text-primary group-open:block" />
                   <span className="font-medium">{project.name}</span>
                   <Badge variant="secondary">{project.status}</Badge>
+                  {projectDelegation && <DelegationBadge delegation={projectDelegation} />}
                   <span className="hidden truncate text-sm text-muted-foreground sm:inline">
                     {[client?.name, owner?.full_name].filter(Boolean).join(" · ")}
                   </span>
@@ -162,6 +195,7 @@ export async function ProjectTaskBoard() {
                           <TableHead>Task</TableHead>
                           <TableHead>Due</TableHead>
                           <TableHead>Assignee</TableHead>
+                          <TableHead>Delegated</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -174,12 +208,29 @@ export async function ProjectTaskBoard() {
                               key={task.id}
                               className={cn(task.status === "done" && "opacity-60")}
                             >
-                              <TableCell className="font-medium">{task.title}</TableCell>
+                              <TableCell>
+                                <div className="font-medium">{task.title}</div>
+                                {task.agent_report && (
+                                  <p className="mt-1 max-w-md text-xs whitespace-normal text-muted-foreground">
+                                    {task.agent_reported_at && (
+                                      <span className="text-foreground/70">
+                                        {formatDateTime(task.agent_reported_at)}:{" "}
+                                      </span>
+                                    )}
+                                    {task.agent_report}
+                                  </p>
+                                )}
+                              </TableCell>
                               <TableCell>
                                 <DueBadge task={task} today={today} />
                               </TableCell>
                               <TableCell className="text-muted-foreground">
                                 {assignee?.full_name ?? "Unassigned"}
+                              </TableCell>
+                              <TableCell>
+                                <DelegationBadge
+                                  delegation={effectiveDelegation(task, project)}
+                                />
                               </TableCell>
                               <TableCell>
                                 <Badge variant="outline">{task.status}</Badge>
