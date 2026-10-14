@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MarketBoard } from "@/components/intel/market-board";
 import { WatchlistPanel } from "@/components/intel/watchlist-panel";
 import { CategorizedNews } from "@/components/intel/categorized-news";
 
@@ -22,9 +23,13 @@ export default function IntelPage() {
       <div>
         <h1 className="font-heading text-2xl font-bold text-gradient-green">Intel Hub</h1>
         <p className="text-sm text-muted-foreground">
-          Your live Interactive Brokers watchlist and curated Fintech/AI/Alts news.
+          The markets at a glance, your watchlist, and curated Fintech/AI/Alts news.
         </p>
       </div>
+
+      <Suspense fallback={<SectionSkeleton rows={6} />}>
+        <MarketBoard />
+      </Suspense>
 
       <Suspense fallback={<SectionSkeleton rows={4} />}>
         <WatchlistPanel />
