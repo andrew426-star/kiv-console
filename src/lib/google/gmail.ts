@@ -9,6 +9,8 @@ export type InboxMessage = {
   snippet: string;
   date: string;
   unread: boolean;
+  // The account's own labels on the message (e.g. "School/Billing").
+  labels: string[];
   // Unset means "workspace".
   source?: GoogleAccountSource;
 };
@@ -32,6 +34,7 @@ export async function listRecentInboxMessages(
   if (!listRes.ok) throw new Error(`Gmail list failed: ${await listRes.text()}`);
   const listData = (await listRes.json()) as { messages?: Array<{ id: string }> };
   const ids = (listData.messages ?? []).map((m) => m.id);
+  const labelNames = ids.length ? await listUserLabels(accessToken) : new Map<string, string>();
 
   return Promise.all(
     ids.map(async (id) => {
@@ -60,9 +63,21 @@ export async function listRecentInboxMessages(
         snippet: data.snippet ?? "",
         date: data.internalDate ? new Date(Number(data.internalDate)).toISOString() : "",
         unread: (data.labelIds ?? []).includes("UNREAD"),
+        labels: (data.labelIds ?? []).flatMap((l) => labelNames.get(l) ?? []),
       };
     }),
   );
+}
+
+// id -> name for the account's own labels (labels.list is covered by
+// gmail.metadata). A failure only drops the label chips, never the preview.
+async function listUserLabels(accessToken: string): Promise<Map<string, string>> {
+  const res = await fetch(`${GMAIL_BASE}/labels`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return new Map();
+  const data = (await res.json()) as { labels?: Array<{ id: string; name: string; type?: string }> };
+  return new Map((data.labels ?? []).filter((l) => l.type === "user").map((l) => [l.id, l.name]));
 }
 
 // Send-only (gmail.send scope) — used for the ALE daily-run completion

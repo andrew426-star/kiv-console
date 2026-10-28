@@ -44,6 +44,11 @@ export async function InboxSnapshot() {
                 </p>
                 <p className="truncate text-xs text-muted-foreground">{m.subject}</p>
               </div>
+              {m.labels[0] ? (
+                <Badge variant="outline" className="max-w-28 shrink-0 truncate text-muted-foreground">
+                  {m.labels[0]}
+                </Badge>
+              ) : null}
               {m.source === "school" ? <SchoolBadge /> : null}
               {m.unread ? (
                 <Badge variant="outline" className="shrink-0 border-kv-mint/40 text-kv-mint">
